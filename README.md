@@ -20,6 +20,25 @@ it can be copied directly into a real fork's `dns/` directory:
 dns/ctrld/{Makefile,pkg-descr,src/...}
 ```
 
+## Testing on a real OPNsense box
+
+There's no `pkg install` path for this yet (see below) — for dev-loop
+iteration, run [`dns/ctrld/tools/deploy-dev.sh`](dns/ctrld/tools/deploy-dev.sh)
+*on the OPNsense test box itself*. It clones this repo (or pulls latest on
+repeat runs), syncs `dns/ctrld/src/` into the real filesystem locations
+OPNsense expects, and reloads the web GUI:
+
+```sh
+pkg install git   # one-time
+fetch -o /root/deploy-dev.sh https://raw.githubusercontent.com/thatcoleyouknow/opnsense-plugins/main/dns/ctrld/tools/deploy-dev.sh
+sh /root/deploy-dev.sh
+```
+
+Re-run the last line after every push to redeploy. Test against a spare/VM
+instance if you have one, not a box your LAN's live DNS depends on — this
+plugin has been syntax-checked and cross-verified against real OPNsense core
+source, but has never actually booted inside the OPNsense MVC runtime.
+
 ## Known prerequisite before a real upstream PR
 
 `ctrld` has no FreeBSD port today and is only distributed as a manual binary

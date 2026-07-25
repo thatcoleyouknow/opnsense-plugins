@@ -101,7 +101,8 @@ class Listener extends BaseModel
                     $unbound = new \OPNsense\Unbound\Unbound();
                     if ((string)$unbound->general->enabled == '1') {
                         $active = (string)($unbound->general->active_interface ?? '');
-                        if ($active === '' || strpos($active, $interface) !== false) {
+                        $activeInterfaces = array_filter(array_map('trim', explode(',', $active)));
+                        if (empty($activeInterfaces) || in_array($interface, $activeInterfaces, true)) {
                             return 'Unbound';
                         }
                     }
@@ -112,7 +113,7 @@ class Listener extends BaseModel
             if (class_exists('\OPNsense\Dnsmasq\Dnsmasq')) {
                 try {
                     $dnsmasq = new \OPNsense\Dnsmasq\Dnsmasq();
-                    if ((string)$dnsmasq->general->enabled == '1') {
+                    if ((string)$dnsmasq->enable == '1') {
                         return 'Dnsmasq';
                     }
                 } catch (\Throwable $e) {
