@@ -1,0 +1,29 @@
+<model>
+    <mount>//OPNsense/ctrld/listeners</mount>
+    <description>ctrld listener configuration</description>
+    <version>0.0.1</version>
+    <items>
+        <listeners>
+            <listener type="ArrayField">
+                <enabled type="BooleanField">
+                    <Default>1</Default>
+                    <Required>Y</Required>
+                </enabled>
+                <description type="TextField">
+                    <Required>N</Required>
+                </description>
+                <interface type="InterfaceField">
+                    <Required>Y</Required>
+                    <ValidationMessage>Select a specific interface/VLAN. Listeners can never be bound to all interfaces.</ValidationMessage>
+                </interface>
+                <port type="IntegerField">
+                    <Default>53</Default>
+                    <Required>Y</Required>
+                    <MinimumValue>1</MinimumValue>
+                    <MaximumValue>65535</MaximumValue>
+                    <ValidationMessage>Choose a port between 1 and 65535.</ValidationMessage>
+                </port>
+            </listener>
+        </listeners>
+    </items>
+</model>

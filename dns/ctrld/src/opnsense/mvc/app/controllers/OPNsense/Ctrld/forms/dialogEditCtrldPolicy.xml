@@ -1,0 +1,35 @@
+<form>
+    <field>
+        <id>policy.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>policy.description</id>
+        <label>Description</label>
+        <type>text</type>
+    </field>
+    <field>
+        <id>policy.listener</id>
+        <label>Listener</label>
+        <type>dropdown</type>
+    </field>
+    <field>
+        <id>policy.matchType</id>
+        <label>Match type</label>
+        <type>dropdown</type>
+        <help>cidr for VLAN/network-based routing (the primary use case), domain for split-horizon delegation such as *.in-addr.arpa or an internal zone, mac for per-device rules.</help>
+    </field>
+    <field>
+        <id>policy.matchValue</id>
+        <label>Match value</label>
+        <type>text</type>
+        <help>e.g. 192.168.3.0/24, internal, 168.192.in-addr.arpa, or aa:bb:cc:dd:ee:ff, depending on the match type above.</help>
+    </field>
+    <field>
+        <id>policy.upstream</id>
+        <label>Upstream profile</label>
+        <type>dropdown</type>
+        <help>Matching queries are routed to this upstream profile. Select the local-zone resolver upstream here for *.in-addr.arpa / internal delegation rules.</help>
+    </field>
+</form>

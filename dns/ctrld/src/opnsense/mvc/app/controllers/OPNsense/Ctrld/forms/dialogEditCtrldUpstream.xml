@@ -1,0 +1,34 @@
+<form>
+    <field>
+        <id>upstream.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>upstream.name</id>
+        <label>Name</label>
+        <type>text</type>
+    </field>
+    <field>
+        <id>upstream.nextdnsProfileId</id>
+        <label>NextDNS profile ID (quick-add)</label>
+        <type>text</type>
+        <help>Paste just the NextDNS profile ID (e.g. abc123) and the type/endpoint fields below are filled in automatically as https://dns.nextdns.io/&lt;id&gt; with type doh3. Leave blank for a non-NextDNS upstream.</help>
+    </field>
+    <field>
+        <id>upstream.type</id>
+        <label>Type</label>
+        <type>dropdown</type>
+    </field>
+    <field>
+        <id>upstream.endpoint</id>
+        <label>Endpoint</label>
+        <type>text</type>
+        <help>URL for doh/doh3, host[:port] for dot/legacy.</help>
+    </field>
+    <field>
+        <id>upstream.timeout</id>
+        <label>Timeout (ms)</label>
+        <type>text</type>
+    </field>
+</form>

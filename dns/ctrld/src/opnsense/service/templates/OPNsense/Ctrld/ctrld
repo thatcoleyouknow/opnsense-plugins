@@ -1,0 +1,8 @@
+{#
+    Written to /etc/rc.conf.d/ctrld. This is the rcvar step -- separate from
+    ctrld's own rc.d script existing -- so that installing/enabling this
+    plugin actually persists ctrld across reboots via the standard OPNsense
+    model -> configd -> rc.conf.d pattern, rather than assuming package
+    presence implies boot persistence.
+#}
+ctrld_enable="{% if OPNsense.ctrld.general.enabled == '1' %}YES{% else %}NO{% endif %}"

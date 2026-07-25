@@ -1,0 +1,31 @@
+<form>
+    <field>
+        <id>general.enabled</id>
+        <label>Enable ctrld</label>
+        <type>checkbox</type>
+        <help>Starts ctrld as the client-facing DNS listener on the interfaces configured below. Unbound and Dnsmasq are left running and are not touched by this toggle.</help>
+    </field>
+    <field>
+        <id>general.logLevel</id>
+        <label>Log level</label>
+        <type>dropdown</type>
+    </field>
+    <field>
+        <id>general.localZoneResolverHost</id>
+        <label>Local-zone resolver host</label>
+        <type>text</type>
+        <help>The resolver that *.in-addr.arpa reverse zones and the internal domain are delegated to (typically Unbound on its loopback address).</help>
+    </field>
+    <field>
+        <id>general.localZoneResolverPort</id>
+        <label>Local-zone resolver port</label>
+        <type>text</type>
+        <help>Must match the port Unbound (or another local resolver) is actually listening on for these zones. This is checked against Unbound's live configuration when available.</help>
+    </field>
+    <field>
+        <id>general.dnssecNoticeAcknowledged</id>
+        <label>DNSSEC notice acknowledged</label>
+        <type>checkbox</type>
+        <help>Internal flag set when the DNSSEC tradeoff notice on this page has been dismissed. Does not affect ctrld's behavior.</help>
+    </field>
+</form>

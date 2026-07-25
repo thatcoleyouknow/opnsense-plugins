@@ -1,0 +1,38 @@
+<model>
+    <mount>//OPNsense/ctrld/general</mount>
+    <description>ctrld general configuration</description>
+    <version>0.0.1</version>
+    <items>
+        <enabled type="BooleanField">
+            <Default>0</Default>
+            <Required>Y</Required>
+        </enabled>
+        <logLevel type="OptionField">
+            <Default>info</Default>
+            <Required>Y</Required>
+            <OptionValues>
+                <debug>debug</debug>
+                <info>info</info>
+                <warn>warn</warn>
+                <error>error</error>
+            </OptionValues>
+        </logLevel>
+        <localZoneResolverHost type="TextField">
+            <Default>127.0.0.1</Default>
+            <Required>Y</Required>
+            <ValidationMessage>Enter a valid IP address of the local resolver used for zone delegation.</ValidationMessage>
+            <Mask>/^[0-9a-fA-F.:]+$/</Mask>
+        </localZoneResolverHost>
+        <localZoneResolverPort type="IntegerField">
+            <Default>53053</Default>
+            <Required>Y</Required>
+            <MinimumValue>1</MinimumValue>
+            <MaximumValue>65535</MaximumValue>
+            <ValidationMessage>Choose a port between 1 and 65535.</ValidationMessage>
+        </localZoneResolverPort>
+        <dnssecNoticeAcknowledged type="BooleanField">
+            <Default>0</Default>
+            <Required>Y</Required>
+        </dnssecNoticeAcknowledged>
+    </items>
+</model>

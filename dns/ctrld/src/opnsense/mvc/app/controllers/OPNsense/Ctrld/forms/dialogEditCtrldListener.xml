@@ -1,0 +1,24 @@
+<form>
+    <field>
+        <id>listener.enabled</id>
+        <label>Enabled</label>
+        <type>checkbox</type>
+    </field>
+    <field>
+        <id>listener.description</id>
+        <label>Description</label>
+        <type>text</type>
+    </field>
+    <field>
+        <id>listener.interface</id>
+        <label>Interface</label>
+        <type>dropdown</type>
+        <help>Listeners must bind to a specific interface/VLAN. "All interfaces" / 0.0.0.0 is never offered here.</help>
+    </field>
+    <field>
+        <id>listener.port</id>
+        <label>Port</label>
+        <type>text</type>
+        <help>Typically 53. Must not collide with a port Unbound or Dnsmasq already binds on this interface.</help>
+    </field>
+</form>

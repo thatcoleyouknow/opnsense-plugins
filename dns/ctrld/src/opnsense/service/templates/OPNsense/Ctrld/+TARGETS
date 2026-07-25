@@ -1,0 +1,2 @@
+ctrld:/etc/rc.conf.d/ctrld
+ctrld.toml:/etc/controld/ctrld.toml

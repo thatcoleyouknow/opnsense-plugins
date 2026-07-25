@@ -1,0 +1,53 @@
+<model>
+    <mount>//OPNsense/ctrld/policies</mount>
+    <description>ctrld policy routing rules</description>
+    <version>0.0.1</version>
+    <items>
+        <policies>
+            <policy type="ArrayField">
+                <enabled type="BooleanField">
+                    <Default>1</Default>
+                    <Required>Y</Required>
+                </enabled>
+                <description type="TextField">
+                    <Required>N</Required>
+                </description>
+                <listener type="ModelRelationField">
+                    <Model>
+                        <listeners>
+                            <source>OPNsense.Ctrld.Listener</source>
+                            <items>listeners.listener</items>
+                            <display>description</display>
+                        </listeners>
+                    </Model>
+                    <Required>Y</Required>
+                    <ValidationMessage>Select the listener this policy rule applies to.</ValidationMessage>
+                </listener>
+                <matchType type="OptionField">
+                    <Default>cidr</Default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <cidr>cidr</cidr>
+                        <domain>domain</domain>
+                        <mac>mac</mac>
+                    </OptionValues>
+                </matchType>
+                <matchValue type="TextField">
+                    <Required>Y</Required>
+                    <ValidationMessage>Enter a CIDR (e.g. 192.168.3.0/24), domain (e.g. internal), or MAC address matching the selected match type.</ValidationMessage>
+                </matchValue>
+                <upstream type="ModelRelationField">
+                    <Model>
+                        <upstreams>
+                            <source>OPNsense.Ctrld.Upstream</source>
+                            <items>upstreams.upstream</items>
+                            <display>name</display>
+                        </upstreams>
+                    </Model>
+                    <Required>Y</Required>
+                    <ValidationMessage>Select the upstream profile this rule should route matching queries to.</ValidationMessage>
+                </upstream>
+            </policy>
+        </policies>
+    </items>
+</model>

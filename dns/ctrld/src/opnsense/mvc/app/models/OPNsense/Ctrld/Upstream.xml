@@ -1,0 +1,45 @@
+<model>
+    <mount>//OPNsense/ctrld/upstreams</mount>
+    <description>ctrld upstream profile configuration</description>
+    <version>0.0.1</version>
+    <items>
+        <upstreams>
+            <upstream type="ArrayField">
+                <enabled type="BooleanField">
+                    <Default>1</Default>
+                    <Required>Y</Required>
+                </enabled>
+                <name type="TextField">
+                    <Required>Y</Required>
+                    <ValidationMessage>Enter a unique, descriptive name for this upstream profile.</ValidationMessage>
+                </name>
+                <type type="OptionField">
+                    <Default>doh3</Default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <doh>doh</doh>
+                        <doh3>doh3</doh3>
+                        <dot>dot</dot>
+                        <legacy>legacy</legacy>
+                    </OptionValues>
+                </type>
+                <endpoint type="TextField">
+                    <Required>Y</Required>
+                    <ValidationMessage>Enter the upstream endpoint (URL for doh/doh3, host[:port] for dot/legacy).</ValidationMessage>
+                </endpoint>
+                <timeout type="IntegerField">
+                    <Default>5000</Default>
+                    <Required>Y</Required>
+                    <MinimumValue>100</MinimumValue>
+                    <MaximumValue>60000</MaximumValue>
+                    <ValidationMessage>Enter a timeout in milliseconds between 100 and 60000.</ValidationMessage>
+                </timeout>
+                <nextdnsProfileId type="TextField">
+                    <Required>N</Required>
+                    <Mask>/^[0-9a-fA-F]{0,8}$/</Mask>
+                    <ValidationMessage>NextDNS profile IDs are short hexadecimal strings.</ValidationMessage>
+                </nextdnsProfileId>
+            </upstream>
+        </upstreams>
+    </items>
+</model>

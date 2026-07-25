@@ -1,0 +1,67 @@
+os-ctrld provides a native OPNsense GUI for configuring and running ctrld
+(https://github.com/Control-D-Inc/ctrld), a DNS forwarding proxy, as the
+client-facing DNS entry point alongside the existing Unbound and Dnsmasq
+services.
+
+Unlike Unbound, ctrld's policy engine can route DNS queries to different
+upstream profiles based on the source network/VLAN, and can tag outgoing
+DNS-over-HTTPS requests with per-client metadata (IP/MAC/hostname). This
+plugin is built specifically to make that possible with NextDNS: separate
+NextDNS profiles per VLAN, with individual devices distinguishable in
+NextDNS's own dashboard and logs -- something that cannot be done with
+Unbound's forward-zone model, since forward-zone selection in Unbound
+cannot vary by source client or network.
+
+In the resulting architecture, ctrld takes over the client-facing listener
+role previously held by Unbound. Unbound is not removed: it is repurposed
+to answer only *.in-addr.arpa reverse zones and the local "internal"
+domain, on its existing non-default loopback port, exactly as it does
+today for Dnsmasq. Dnsmasq continues to handle DHCP unchanged.
+
+Why not just run multiple independent validating resolvers (Unbound or
+PowerDNS Recursor instances), each statically bound to one interface with
+a single fixed forward-zone to one NextDNS profile, instead of adding a
+new plugin? That alternative was considered and deliberately not chosen.
+It preserves full end-to-end DNSSEC validation and achieves per-VLAN
+profile separation, but it structurally cannot achieve per-device
+metadata tagging inside NextDNS's own dashboard, since that capability
+inherently requires the dynamic per-query routing this alternative avoids
+by design. It is also not a "just use what's already there" shortcut:
+OPNsense's native Unbound plugin has no multi-instance support today (it
+manages exactly one merged configuration via .opnsense.d includes), so
+this alternative would itself require comparable new plugin
+infrastructure to become GUI-manageable.
+
+DNSSEC note: ctrld is a forwarding proxy and does not independently
+validate DNSSEC locally. NextDNS does validate DNSSEC on its own
+infrastructure and blocks responses with invalid signatures or on
+zones that are not properly signed, so validation is not absent from
+the pipeline -- it happens upstream instead of locally. This makes the
+trust model hop-by-hop (trusting NextDNS's validation and infrastructure
+integrity) rather than end-to-end (independently verifiable locally
+regardless of any intermediate party). This is a real difference, but
+not an unusual posture: most consumer encrypted-DNS tooling, including
+AdGuard Home's typical configuration, works the same way. The plugin's
+GUI surfaces this tradeoff persistently on the main configuration page
+rather than hiding it in a tooltip.
+
+Known prerequisite for upstream distribution: ctrld is not currently
+available as a FreeBSD port and is only distributed as a manual binary
+download from its GitHub releases. This plugin manages an
+already-installed ctrld binary (the same posture dns/dnscrypt-proxy
+takes toward its own port dependency) and does not fetch or vendor a
+precompiled binary itself. Packaging ctrld as a proper FreeBSD port is
+a separate prerequisite for a from-ports installation story.
+
+This plugin was developed with the assistance of Claude Code (Anthropic).
+
+Plugin Changelog:
+
+0.0.1
+	- Initial version: listener management, upstream profile management
+	  (with a NextDNS quick-add flow), CIDR/domain/MAC policy routing
+	  rules, local-zone delegation helper, discovered-clients view,
+	  service lifecycle integration, and a persistent DNSSEC status
+	  panel.
+
+WWW: https://github.com/Control-D-Inc/ctrld
