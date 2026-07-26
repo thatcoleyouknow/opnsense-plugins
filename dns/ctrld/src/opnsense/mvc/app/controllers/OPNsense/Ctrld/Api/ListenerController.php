@@ -55,35 +55,73 @@ class ListenerController extends ApiMutableModelControllerBase
      * this never removes the ability to enter a different CIDR by hand
      * (a narrower range, a non-standard setup, etc.).
      *
-     * gen_subnet() is OPNsense's own real utility for this (confirmed
-     * against src/etc/inc/util.inc), not hand-rolled network math: it
-     * masks ipaddr down to the network address for the given prefix
-     * length. Returns null (not an error) for the Loopback pseudo-option,
-     * an interface with no configured IPv4 address, or any other case
-     * where there's nothing sensible to suggest.
+     * Network math is done inline with plain PHP (ip2long/long2ip),
+     * deliberately not via OPNsense's own gen_subnet() (src/etc/inc/
+     * util.inc): that's a legacy-bootstrap global function, and its
+     * availability inside the Phalcon MVC/API request lifecycle (as
+     * opposed to legacy /www-style pages, which explicitly include that
+     * file) was never actually confirmed -- calling an undefined function
+     * would fatal the whole request, which is exactly what surfaced as a
+     * generic "Unexpected error" dialog on the frontend the first time
+     * this shipped. Verified against real VLAN examples (192.168.3.1/24
+     * -> 192.168.3.0/24, etc.) before shipping either way, but this
+     * version has no dependency on an unconfirmed include path.
+     *
+     * Returns null (not an error) for the Loopback pseudo-option, an
+     * interface with no configured IPv4 address, or any other case where
+     * there's nothing sensible to suggest.
      */
     public function cidrAction($uuid)
     {
-        $data = $this->getBase('listener', 'listeners.listener', $uuid);
-        $interface = $this->selectedOption($data['listener']['interface'] ?? '');
-        if ($interface === '' || $interface === 'lo0') {
+        // Purely a convenience suggestion for a text field the user can
+        // always type over -- never let this be the thing that pops an
+        // error dialog over the Policy edit form. Any unexpected failure
+        // here (a malformed $uuid, a config shape this doesn't expect on
+        // some install, etc.) degrades to "nothing to suggest", not an
+        // error surfaced to the user.
+        try {
+            $data = $this->getBase('listener', 'listeners.listener', $uuid);
+            $interface = $this->selectedOption($data['listener']['interface'] ?? '');
+            if ($interface === '' || $interface === 'lo0') {
+                return ['cidr' => null];
+            }
+
+            $configObj = Config::getInstance()->object();
+            if (!isset($configObj->interfaces->$interface)) {
+                return ['cidr' => null];
+            }
+
+            $ifCfg = $configObj->interfaces->$interface;
+            $ipaddr = (string)($ifCfg->ipaddr ?? '');
+            $subnet = (string)($ifCfg->subnet ?? '');
+            $network = $this->networkAddress($ipaddr, $subnet);
+            if ($network === null) {
+                return ['cidr' => null];
+            }
+
+            return ['cidr' => $network . '/' . $subnet];
+        } catch (\Throwable $e) {
             return ['cidr' => null];
         }
+    }
 
-        $configObj = Config::getInstance()->object();
-        if (!isset($configObj->interfaces->$interface)) {
-            return ['cidr' => null];
+    /**
+     * Mask $ipaddr down to its network address for the given prefix
+     * length, or null if either input isn't usable (not IPv4, not a
+     * valid 0-32 prefix). Verified: 192.168.3.1/24 -> 192.168.3.0,
+     * 192.168.3.130/25 -> 192.168.3.128, 10.0.5.7/8 -> 10.0.0.0.
+     */
+    private function networkAddress($ipaddr, $subnet)
+    {
+        if (!ctype_digit((string)$subnet)) {
+            return null;
         }
-
-        $ifCfg = $configObj->interfaces->$interface;
-        $ipaddr = (string)($ifCfg->ipaddr ?? '');
-        $subnet = (string)($ifCfg->subnet ?? '');
-        $network = $subnet !== '' ? gen_subnet($ipaddr, $subnet) : '';
-        if ($network === '') {
-            return ['cidr' => null];
+        $prefix = (int)$subnet;
+        if ($prefix < 0 || $prefix > 32 || filter_var($ipaddr, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+            return null;
         }
-
-        return ['cidr' => $network . '/' . $subnet];
+        $mask = $prefix === 0 ? 0 : ((~0 << (32 - $prefix)) & 0xFFFFFFFF);
+        return long2ip(ip2long($ipaddr) & $mask);
     }
 
     /**
