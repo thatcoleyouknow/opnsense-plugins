@@ -25,7 +25,16 @@ rsync -a "${PLUGIN_SRC}/src/opnsense/" /usr/local/opnsense/
 echo "==> Syncing plugins.inc.d hook into /usr/local/etc"
 rsync -a "${PLUGIN_SRC}/src/etc/" /usr/local/etc/
 
-echo "==> Reloading web GUI (menu/ACL/controller cache)"
+# The ACL and Menu systems each cache their merged XML to disk with a 1hr
+# TTL (see OPNsense\Base\Menu\MenuSystem::persist(), core's system.inc
+# system_cache_flush()). A real `pkg install` triggers this flush via
+# rc.configure_plugins automatically; a manual file sync like this one
+# doesn't, so without this step a new/changed Menu.xml or ACL.xml silently
+# won't show up until the cache expires on its own.
+echo "==> Flushing ACL/menu caches (rc.configure_plugins)"
+/usr/local/etc/rc.configure_plugins
+
+echo "==> Reloading web GUI"
 configctl webgui restart
 
 echo "==> Done. Services > ctrld should now reflect what's in this checkout."
