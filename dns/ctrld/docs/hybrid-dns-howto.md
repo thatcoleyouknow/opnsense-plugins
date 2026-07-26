@@ -92,10 +92,10 @@ traffic to its NextDNS profile:
 | IoT | cidr | `192.168.3.0/24` | NextDNS IoT |
 | LAN | cidr | *(your LAN CIDR)* | NextDNS LAN |
 
-Then handle local-zone delegation: go to the **Local-Zone Delegation** page
-and click **Create local-zone delegation policies**. This creates an Upstream
-row for Dnsmasq (using the host/port from step 2) plus two Policy rows —
-one for `168.192.in-addr.arpa`, one for `internal` — routing those to it
+Then handle local-zone delegation: on that same **Policies** page, click
+**Create local-zone delegation policies**. This creates an Upstream row
+for Dnsmasq (using the host/port from step 2) plus two Policy rows — one
+for `168.192.in-addr.arpa`, one for `internal` — routing those to it
 instead of NextDNS. (Equivalent by hand: an Upstream row named "Local
 resolver", type `legacy`, endpoint `127.0.0.1:53053`, and two `domain`-match
 Policy rows pointed at it.)
@@ -159,9 +159,9 @@ resolver in the next step:
    similar) upstream from step 2: `ctrld` then only falls back to it if
    NextDNS specifically times out or errors, not on every query — NextDNS
    still handles the normal case.
-4a. **Local-Zone Delegation page**: click **Create local-zone delegation
-    rules** again (or by hand, for just this listener). It creates rules
-    per *every* enabled listener, so re-running it after adding the
+4a. **Policies page**: click **Create local-zone delegation policies**
+    again (or by hand, for just this listener). It creates rows for
+    *every* enabled listener, so re-running it after adding the
     loopback listener also delegates the firewall's own
     `*.in-addr.arpa`/`internal` lookups to Dnsmasq instead of NextDNS,
     matching what VLAN listeners already get — otherwise the catch-all rule

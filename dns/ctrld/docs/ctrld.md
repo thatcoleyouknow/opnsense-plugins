@@ -129,25 +129,26 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 | Upstream profile | Where matching queries are routed. |
 | Fallback upstream | Optional. Tried only if the primary upstream above times out or returns SERVFAIL -- not on every query. Leave blank for no fallback. |
 
-### Local-Zone Delegation and Discovered Clients pages
-
-The Local-Zone Delegation page is a guided shortcut: clicking **Create
-local-zone delegation policies** creates an Upstream row for Dnsmasq (using
-the General page's host/port) plus one pair of Policy rows *per enabled
-listener* — one delegating `168.192.in-addr.arpa`, one delegating
-`internal`, both to that Upstream. It reuses an existing "Local resolver"
-Upstream row if one is already there, rather than creating a duplicate, so
-it's safe to click again after adding a new listener (see the
+Below the grid, **Create local-zone delegation policies** is a guided
+shortcut: it creates an Upstream row for Dnsmasq (using the General page's
+host/port) plus one pair of Policy rows *per enabled listener* — one
+delegating `168.192.in-addr.arpa`, one delegating `internal`, both to that
+Upstream — and reloads the grid above so the new rows show up immediately.
+It reuses an existing "Local resolver" Upstream row if one is already
+there, rather than creating a duplicate, so it's safe to click again after
+adding a new listener (see the
 [hybrid DNS how-to's optional loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too)
 for a case where that matters). `168.192.in-addr.arpa` covers the common
 `192.168.0.0/16` home range specifically; add further reverse-zone Policy
-rows by hand on the Policies page for other private ranges (`10.0.0.0/8`,
-etc.). Equivalent by hand: an Upstream row named "Local resolver", type
-`legacy`, endpoint matching the General page's local-zone resolver
-host/port, and one `domain`-match Policy row per zone per listener.
+rows by hand for other private ranges (`10.0.0.0/8`, etc.). Equivalent by
+hand: an Upstream row named "Local resolver", type `legacy`, endpoint
+matching the General page's local-zone resolver host/port, and one
+`domain`-match Policy row per zone per listener.
 
-Discovered Clients mirrors `ctrld clients list` output so you don't need
-SSH to see what ctrld has seen.
+### Discovered Clients page
+
+Mirrors `ctrld clients list` output so you don't need SSH to see what
+ctrld has seen.
 
 ## Log
 
