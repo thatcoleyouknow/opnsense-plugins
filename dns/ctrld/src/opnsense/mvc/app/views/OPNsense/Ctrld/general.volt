@@ -228,7 +228,6 @@
     </div>
 
     <div id="policies" class="tab-pane fade">
-        <p>{{ lang._('Maps a listener + match (CIDR / domain / MAC) to an upstream profile. The primary use case is one row per VLAN, routing that VLAN\'s CIDR to a dedicated NextDNS profile.') }}</p>
         <table id="grid-policies" class="table table-condensed table-hover table-striped" data-editDialog="DialogEditPolicy">
             <thead>
                 <tr>
@@ -259,19 +258,12 @@
     </div>
 
     <div id="localzone" class="tab-pane fade">
-        <p>
-            {{ lang._('*.in-addr.arpa reverse zones and the internal domain should stay delegated to Dnsmasq (or another local resolver), not routed to NextDNS. This creates one policy rule per zone for every enabled listener, pointed at a "Local resolver" upstream profile using the host/port configured on the General tab (normally 127.0.0.1:53053, i.e. Dnsmasq\'s own loopback DNS listener -- see the hybrid DNS how-to).') }}
-        </p>
-        <p>
-            {{ lang._('Covers the common 192.168.0.0/16 home range (168.192.in-addr.arpa) plus internal. Add further reverse-zone rows by hand on the Policies tab for other private ranges.') }}
-        </p>
         <button id="createLocalZoneDelegation" type="button" class="btn btn-primary">
             {{ lang._('Create local-zone delegation rules') }}
         </button>
     </div>
 
     <div id="clients" class="tab-pane fade">
-        <p>{{ lang._('Mirrors `ctrld clients list` -- devices ctrld has seen, without needing SSH access.') }}</p>
         <table id="grid-clients" class="table table-condensed table-hover table-striped">
             <thead>
                 <tr>

@@ -131,11 +131,23 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 
 ### Local-Zone Delegation and Discovered Clients tabs
 
-The Local-Zone Delegation tab is a guided shortcut that creates an Upstream
-row for Dnsmasq (using the General tab's host/port) plus two Policy rows
-delegating `168.192.in-addr.arpa` and `internal` to it — the same result as
-adding those rows by hand. Discovered Clients mirrors `ctrld clients list`
-output so you don't need SSH to see what ctrld has seen.
+The Local-Zone Delegation tab is a guided shortcut: clicking **Create
+local-zone delegation rules** creates an Upstream row for Dnsmasq (using
+the General tab's host/port) plus one pair of Policy rows *per enabled
+listener* — one delegating `168.192.in-addr.arpa`, one delegating
+`internal`, both to that Upstream. It reuses an existing "Local resolver"
+Upstream row if one is already there, rather than creating a duplicate, so
+it's safe to click again after adding a new listener (see the
+[hybrid DNS how-to's optional loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too)
+for a case where that matters). `168.192.in-addr.arpa` covers the common
+`192.168.0.0/16` home range specifically; add further reverse-zone Policy
+rows by hand on the Policies tab for other private ranges (`10.0.0.0/8`,
+etc.). Equivalent by hand: an Upstream row named "Local resolver", type
+`legacy`, endpoint matching the General tab's local-zone resolver
+host/port, and one `domain`-match Policy row per zone per listener.
+
+Discovered Clients mirrors `ctrld clients list` output so you don't need
+SSH to see what ctrld has seen.
 
 ## Known limitations
 
