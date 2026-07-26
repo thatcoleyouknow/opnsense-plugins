@@ -53,6 +53,19 @@ chmod +x /usr/local/etc/rc.d/ctrld
 echo "==> Flushing ACL/menu caches (rc.configure_plugins)"
 /usr/local/etc/rc.configure_plugins
 
+# configd (core/opnsense/service/modules/processhandler.py) reads every
+# actions.d/actions_*.conf file exactly once, at its own process startup
+# (ActionHandler.load_config(), called from __init__ -- confirmed against
+# the real source, not guessed). Editing/adding a section to an
+# *already-loaded* actions_ctrld.conf -- e.g. a brand new action -- has no
+# effect until configd itself restarts; syncing the file to disk isn't
+# enough. This restarts the system-wide configd daemon (a few seconds,
+# used by every plugin's Apply/service-control buttons, not just this
+# one) -- low risk and self-healing, but worth knowing what it is before
+# running this repeatedly.
+echo "==> Restarting configd (picks up new/changed actions.d entries)"
+service configd restart
+
 echo "==> Reloading web GUI"
 configctl webgui restart
 

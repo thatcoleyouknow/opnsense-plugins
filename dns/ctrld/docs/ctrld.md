@@ -226,6 +226,16 @@ dialog specifically points at the status check itself, not the reconfigure
 step. SSH and check `service ctrld status` / `ps aux | grep ctrld`
 directly to confirm whether it's actually running.
 
+**A newly-added action (e.g. the Log tab) returns "Action not allowed or
+missing."** configd (`processhandler.py`'s `ActionHandler.load_config()`)
+reads every `actions.d/actions_*.conf` file exactly once, at its own
+process startup -- not per-request, and not on file change. Syncing a
+changed `actions_ctrld.conf` to disk (e.g. via `deploy-dev.sh`) has no
+effect on an already-running configd until it's restarted: `service
+configd restart`. `deploy-dev.sh` does this automatically as of the
+version in this repo; if you're seeing this on an older checkout, restart
+configd by hand.
+
 **Discovered Clients stays empty despite the service running.** Two
 independent possible causes, check in this order: (1) has any client on a
 configured VLAN actually sent a DNS query through a ctrld listener yet --
