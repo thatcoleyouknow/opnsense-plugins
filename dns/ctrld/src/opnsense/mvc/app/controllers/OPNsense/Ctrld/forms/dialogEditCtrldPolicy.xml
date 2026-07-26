@@ -27,7 +27,7 @@
         <id>policy.matchValue</id>
         <label>Match value</label>
         <type>text</type>
-        <help>e.g. 192.168.3.0/24, internal, 168.192.in-addr.arpa, or aa:bb:cc:dd:ee:ff, depending on the match type above. For a cidr rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- overwrite it freely for a narrower range or a non-standard setup.</help>
+        <help>e.g. 192.168.3.0/24, internal, 168.192.in-addr.arpa, or aa:bb:cc:dd:ee:ff, depending on the match type above. For a cidr rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- overwrite it freely for a narrower range or a non-standard setup. For a domain rule, matches are exact -- example.com does not also match foo.example.com; add a separate *.example.com rule to cover subdomains.</help>
     </field>
     <field>
         <id>policy.upstream</id>

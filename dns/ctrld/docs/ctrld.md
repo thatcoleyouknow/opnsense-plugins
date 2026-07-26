@@ -125,7 +125,7 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 | Description | Label shown in the list. |
 | Listener | Which listener this rule applies to. |
 | Match type | `cidr` for VLAN/network routing, `domain` for split-horizon delegation (e.g. `*.in-addr.arpa`, `internal`), `mac` for per-device rules. |
-| Match value | The CIDR, domain, or MAC address to match, depending on match type. For a `cidr` rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- fully editable/overridable, not a locked value. |
+| Match value | The CIDR, domain, or MAC address to match, depending on match type. For a `cidr` rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- fully editable/overridable, not a locked value. For a `domain` rule, ctrld matches the value *exactly* -- it does not fall back to a suffix match. `example.com` matches only `example.com`, not `foo.example.com`; to also cover subdomains (at any depth), add a separate `*.example.com` wildcard rule. |
 | Upstream profile | Where matching queries are routed. |
 | Fallback upstream | Optional. Tried only if the primary upstream above times out or returns SERVFAIL -- not on every query. Leave blank for no fallback. |
 
@@ -144,6 +144,14 @@ rows by hand for other private ranges (`10.0.0.0/8`, etc.). Equivalent by
 hand: an Upstream row named "Local resolver", type `legacy`, endpoint
 matching the General page's local-zone resolver host/port, and one
 `domain`-match Policy row per zone per listener.
+
+Below that, a second quick-add does the same thing for an arbitrary
+domain: enter a domain (e.g. `example.com`), and **Add domain delegation
+policy** creates one Policy row per enabled listener, routed to the same
+"Local resolver" Upstream (reused/created exactly as above). **Include
+subdomains** is checked by default and adds a second `*.<domain>` wildcard
+row alongside the exact one, per the exact-match caveat above -- uncheck
+it if you specifically want only the bare domain delegated.
 
 ### Discovered Clients page
 

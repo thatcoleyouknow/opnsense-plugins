@@ -53,14 +53,15 @@
             suggestPolicyCidr(false);
         });
 
-        // Local-zone delegation helper: reuses (rather than duplicates) a
+        // Domain delegation helper: reuses (rather than duplicates) a
         // "Local resolver" upstream pointing at the configured
-        // localZoneResolverHost/Port, then creates one pair of domain-match
-        // policy rows per existing enabled listener (a Policy row requires
-        // a listener -- this can't create a listener-less rule). The
-        // 168.192.in-addr.arpa zone covers the common 192.168.0.0/16 home
-        // range specifically; add further reverse-zone rows by hand for
-        // other private ranges (10.0.0.0/8, etc.).
+        // localZoneResolverHost/Port, then creates one domain-match policy
+        // row per zone, per existing enabled listener (a Policy row
+        // requires a listener -- this can't create a listener-less rule).
+        // Shared by both buttons below: the fixed local-zone shortcut
+        // (168.192.in-addr.arpa/internal) and the arbitrary-domain
+        // quick-add -- same multi-step workflow either way, just a
+        // different zone list and dialog title.
         //
         // Lives on this page (not its own blade) since it only ever
         // mutates rows shown in the grid above -- reloads the grid once
@@ -76,12 +77,10 @@
         // $this->request->isGet() -- ajaxCall() always POSTs (confirmed
         // against OPNsense core's opnsense.js), which made this silently
         // come back as an empty [], read below as "host/port not set".
-        $("#createLocalZoneDelegation").click(function(){
-            var $btn = $(this);
+        function runDomainDelegation($btn, zones, dialogTitle, descriptionPrefix) {
             if ($btn.prop('disabled')) {
                 return;
             }
-            var zones = ['168.192.in-addr.arpa', 'internal'];
             var originalHtml = $btn.html();
 
             $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-pulse"></i> ' + originalHtml);
@@ -90,7 +89,7 @@
                 $btn.prop('disabled', false).html(originalHtml);
                 BootstrapDialog.show({
                     type: isError ? BootstrapDialog.TYPE_WARNING : BootstrapDialog.TYPE_SUCCESS,
-                    title: 'Local-zone delegation',
+                    title: dialogTitle,
                     message: message
                 });
             }
@@ -101,7 +100,7 @@
                         return row.enabled === '1';
                     });
                     if (listeners.length === 0) {
-                        finish("Add at least one listener first -- local-zone delegation rules are created per listener.", true);
+                        finish("Add at least one listener first -- delegation rules are created per listener.", true);
                         return;
                     }
                     ajaxCall("/api/ctrld/policy/searchItem", {}, function(policyResponse){
@@ -120,14 +119,14 @@
                             });
                         });
                         if (toCreate.length === 0) {
-                            finish("Nothing to do -- local-zone delegation rules already exist for every enabled listener.");
+                            finish("Nothing to do -- matching delegation rules already exist for every enabled listener.");
                             return;
                         }
                         var deferreds = toCreate.map(function(item){
                             return ajaxCall("/api/ctrld/policy/addItem", {
                                 policy: {
                                     enabled: '1',
-                                    description: 'Local-zone delegation: ' + item.zone,
+                                    description: descriptionPrefix + item.zone,
                                     listener: item.listener.uuid,
                                     matchType: 'domain',
                                     matchValue: item.zone,
@@ -137,7 +136,7 @@
                         });
                         $.when.apply($, deferreds).always(function(){
                             $("#grid-policies").bootgrid('reload');
-                            finish("Created " + toCreate.length + " local-zone delegation rule(s).");
+                            finish("Created " + toCreate.length + " delegation rule(s).");
                         });
                     });
                 });
@@ -180,6 +179,35 @@
                 }
                 withGeneralSettings(general.localZoneResolverHost, general.localZoneResolverPort);
             });
+        }
+
+        $("#createLocalZoneDelegation").click(function(){
+            runDomainDelegation($(this), ['168.192.in-addr.arpa', 'internal'], 'Local-zone delegation', 'Local-zone delegation: ');
+        });
+
+        // Arbitrary-domain quick-add: ctrld's own domain rules are an
+        // *exact* match only (confirmed against ctrld's real matching
+        // code, cmd/cli/dns_proxy.go -- a plain "example.com" rule never
+        // falls back to a suffix/wildcard check). A "*.example.com" rule
+        // does a suffix match instead, covering subdomains at any depth,
+        // but it won't match the bare apex domain itself. So covering
+        // "this domain and everything under it" needs both rules --
+        // that's what the checkbox below adds when checked.
+        $("#createDomainDelegation").click(function(){
+            var domain = $("#quickAddDomain").val().trim().toLowerCase().replace(/^\*\.|^\.|\.$/g, '');
+            if (domain === '') {
+                BootstrapDialog.show({
+                    type: BootstrapDialog.TYPE_WARNING,
+                    title: 'Domain delegation',
+                    message: 'Enter a domain first.'
+                });
+                return;
+            }
+            var zones = [domain];
+            if ($("#quickAddIncludeSubdomains").prop('checked')) {
+                zones.push('*.' + domain);
+            }
+            runDomainDelegation($(this), zones, 'Domain delegation', 'Domain delegation: ');
         });
 
         updateServiceControlUI('ctrld');
@@ -215,4 +243,16 @@
     <button id="createLocalZoneDelegation" type="button" class="btn btn-primary">
         {{ lang._('Create local-zone delegation policies') }}
     </button>
+    <hr/>
+    <p>{{ lang._('Quick-add: delegate a specific internal domain to the same local resolver, one policy row per enabled listener -- skips any that already exist.') }}</p>
+    <div class="form-inline">
+        <input type="text" id="quickAddDomain" class="form-control" placeholder="{{ lang._('e.g. example.com') }}"/>
+        <label style="margin-left: 15px;" title="{{ lang._('ctrld only matches domains exactly -- check this to also add a *.<domain> rule covering subdomains at any depth (foo.example.com, foo.bar.example.com, etc.).') }}">
+            <input type="checkbox" id="quickAddIncludeSubdomains" checked="checked"/>
+            {{ lang._('Include subdomains') }}
+        </label>
+        <button id="createDomainDelegation" type="button" class="btn btn-primary" style="margin-left: 15px;">
+            {{ lang._('Add domain delegation policy') }}
+        </button>
+    </div>
 </div>
