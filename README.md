@@ -23,18 +23,18 @@ dns/ctrld/{Makefile,pkg-descr,src/...}
 ## Testing on a real OPNsense box
 
 There's no `pkg install` path for this yet (see below) — for dev-loop
-iteration, run [`dns/ctrld/tools/deploy-dev.sh`](dns/ctrld/tools/deploy-dev.sh)
-*on the OPNsense test box itself*. It clones this repo (or pulls latest on
-repeat runs), syncs `dns/ctrld/src/` into the real filesystem locations
-OPNsense expects, and reloads the web GUI:
+iteration, `git clone` this repo onto the OPNsense test box yourself, then
+run [`dns/ctrld/tools/deploy-dev.sh`](dns/ctrld/tools/deploy-dev.sh) from
+inside that checkout. It syncs `dns/ctrld/src/` into the real filesystem
+locations OPNsense expects and reloads the web GUI:
 
 ```sh
-pkg install git   # one-time
-fetch -o /root/deploy-dev.sh https://raw.githubusercontent.com/thatcoleyouknow/opnsense-plugins/main/dns/ctrld/tools/deploy-dev.sh
-sh /root/deploy-dev.sh
+git clone https://github.com/thatcoleyouknow/opnsense-plugins.git
+sh opnsense-plugins/dns/ctrld/tools/deploy-dev.sh
 ```
 
-Re-run the last line after every push to redeploy. Test against a spare/VM
+Re-run the script (after your own `git pull`) whenever you want to
+redeploy. Test against a spare/VM
 instance if you have one, not a box your LAN's live DNS depends on — this
 plugin has been syntax-checked and cross-verified against real OPNsense core
 source, but has never actually booted inside the OPNsense MVC runtime.
