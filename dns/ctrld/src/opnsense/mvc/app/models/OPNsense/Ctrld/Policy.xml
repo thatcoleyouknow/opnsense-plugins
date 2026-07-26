@@ -19,7 +19,14 @@
                         <listeners>
                             <source>OPNsense.Ctrld.Listener</source>
                             <items>listeners.listener</items>
-                            <display>description</display>
+                            <!--
+                                interface/port lead the format (always present) rather than
+                                description alone (optional): a listener with no description
+                                would otherwise show up as a blank-labeled, seemingly-missing
+                                option in this dropdown.
+                            -->
+                            <display>interface,port,description</display>
+                            <display_format>%s:%s %s</display_format>
                         </listeners>
                     </Model>
                     <Required>Y</Required>

@@ -48,23 +48,32 @@
             }
         });
 
-        $("#saveAct").click(function(){
-            saveFormToEndpoint("/api/ctrld/general/set", 'frm_GeneralSettings', function(){
-                ajaxCall("/api/ctrld/service/reconfigure", {}, function(){
-                    updateServiceControlUI('ctrld');
-                });
-            });
+        // SimpleActionButton (spinner, error dialog on failure, and
+        // refreshing the named service-status widget afterward) must be
+        // bound to one button at a time -- it reads endpoint/label from
+        // data-* attributes on `this`, which only resolves correctly for a
+        // single-element jQuery object, not a shared class selector.
+        $("#saveAct").SimpleActionButton({
+            onPreAction: function () {
+                const dfObj = new $.Deferred();
+                saveFormToEndpoint(
+                    "/api/ctrld/general/set",
+                    'frm_GeneralSettings',
+                    function () { dfObj.resolve(); },
+                    true,
+                    function () { dfObj.reject(); }
+                );
+                return dfObj;
+            }
         });
 
         // Listener/Upstream/Policy grid edits save immediately via their
         // own addItem/setItem/delItem/toggleItem endpoints, but (unlike
         // the General tab's Save button) never regenerate ctrld.toml or
         // restart the service on their own -- these Apply buttons do that.
-        $(".btn-apply-ctrld").click(function(){
-            ajaxCall("/api/ctrld/service/reconfigure", {}, function(){
-                updateServiceControlUI('ctrld');
-            });
-        });
+        $("#applyListenersAct").SimpleActionButton({});
+        $("#applyUpstreamsAct").SimpleActionButton({});
+        $("#applyPoliciesAct").SimpleActionButton({});
 
         // Local-zone delegation helper: reuses (rather than duplicates) a
         // "Local resolver" upstream pointing at the configured
@@ -155,12 +164,7 @@
 <div class="tab-content content-box">
     <div id="general" class="tab-pane fade in active">
         {{ partial("layout_partials/base_form",['fields':generalForm,'id':'frm_GeneralSettings'])}}
-        <div class="col-md-12">
-            <button class="btn btn-primary" id="saveAct" type="button">
-                <b>{{ lang._('Save') }}</b>
-                <i id="saveAct_progress" class=""></i>
-            </button>
-        </div>
+        {{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/ctrld/service/reconfigure', 'data_service_widget': 'ctrld', 'data_label': 'Save', 'button_id': 'saveAct'}) }}
     </div>
 
     <div id="listeners" class="tab-pane fade">
@@ -188,11 +192,7 @@
             </tfoot>
         </table>
         {{ partial("layout_partials/base_dialog",['fields':listenerForm,'id':'DialogEditListener','label':lang._('Edit listener')])}}
-        <div class="col-md-12">
-            <button class="btn btn-primary btn-apply-ctrld" type="button">
-                <b>{{ lang._('Apply') }}</b>
-            </button>
-        </div>
+        {{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/ctrld/service/reconfigure', 'data_service_widget': 'ctrld', 'button_id': 'applyListenersAct'}) }}
     </div>
 
     <div id="upstreams" class="tab-pane fade">
@@ -220,11 +220,7 @@
             </tfoot>
         </table>
         {{ partial("layout_partials/base_dialog",['fields':upstreamForm,'id':'DialogEditUpstream','label':lang._('Edit upstream profile')])}}
-        <div class="col-md-12">
-            <button class="btn btn-primary btn-apply-ctrld" type="button">
-                <b>{{ lang._('Apply') }}</b>
-            </button>
-        </div>
+        {{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/ctrld/service/reconfigure', 'data_service_widget': 'ctrld', 'button_id': 'applyUpstreamsAct'}) }}
     </div>
 
     <div id="policies" class="tab-pane fade">
@@ -250,11 +246,7 @@
             </tfoot>
         </table>
         {{ partial("layout_partials/base_dialog",['fields':policyForm,'id':'DialogEditPolicy','label':lang._('Edit policy rule')])}}
-        <div class="col-md-12">
-            <button class="btn btn-primary btn-apply-ctrld" type="button">
-                <b>{{ lang._('Apply') }}</b>
-            </button>
-        </div>
+        {{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/ctrld/service/reconfigure', 'data_service_widget': 'ctrld', 'button_id': 'applyPoliciesAct'}) }}
     </div>
 
     <div id="localzone" class="tab-pane fade">
