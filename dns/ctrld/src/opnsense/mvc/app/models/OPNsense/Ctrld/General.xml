@@ -24,7 +24,7 @@
             <Mask>/^[0-9a-fA-F.:]+$/</Mask>
         </localZoneResolverHost>
         <localZoneResolverPort type="IntegerField">
-            <Default>53</Default>
+            <Default>53053</Default>
             <Required>Y</Required>
             <MinimumValue>1</MinimumValue>
             <MaximumValue>65535</MaximumValue>

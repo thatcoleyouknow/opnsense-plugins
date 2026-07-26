@@ -113,7 +113,7 @@
 
             ajaxCall("/api/ctrld/upstream/searchItem", {}, function(searchResponse){
                 var existing = (searchResponse.rows || []).filter(function(row){
-                    return row.name === 'Local resolver (Unbound)';
+                    return row.name === 'Local resolver' || row.name === 'Local resolver (Unbound)';
                 })[0];
 
                 if (existing) {
@@ -124,7 +124,7 @@
                 ajaxCall("/api/ctrld/upstream/addItem", {
                     upstream: {
                         enabled: '1',
-                        name: 'Local resolver (Unbound)',
+                        name: 'Local resolver',
                         type: 'legacy',
                         endpoint: host + ':' + port,
                         timeout: '5000'
@@ -260,17 +260,11 @@
 
     <div id="localzone" class="tab-pane fade">
         <p>
-            {{ lang._('*.in-addr.arpa reverse zones and the internal domain should stay delegated to Unbound (or another local resolver), not routed to NextDNS. This creates one policy rule per zone for every enabled listener, pointed at a "Local resolver" upstream profile using the host/port configured on the General tab (normally 127.0.0.1:53, i.e. Unbound rebound to loopback-only -- see the hybrid DNS how-to).') }}
+            {{ lang._('*.in-addr.arpa reverse zones and the internal domain should stay delegated to Dnsmasq (or another local resolver), not routed to NextDNS. This creates one policy rule per zone for every enabled listener, pointed at a "Local resolver" upstream profile using the host/port configured on the General tab (normally 127.0.0.1:53053, i.e. Dnsmasq\'s own loopback DNS listener -- see the hybrid DNS how-to).') }}
         </p>
         <p>
-            {{ lang._('Covers the common 192.168.0.0/16 home range (168.192.in-addr.arpa) plus internal. Add further reverse-zone rows by hand on the Policies tab for other private ranges. For reference, this is Unbound\'s own unchanged config for reaching Dnsmasq one hop further down the chain -- not something this plugin manages:') }}
+            {{ lang._('Covers the common 192.168.0.0/16 home range (168.192.in-addr.arpa) plus internal. Add further reverse-zone rows by hand on the Policies tab for other private ranges.') }}
         </p>
-        <pre>forward-zone:
-  name: "168.192.in-addr.arpa"
-  forward-addr: 127.0.0.1@53053
-forward-zone:
-  name: "internal"
-  forward-addr: 127.0.0.1@53053</pre>
         <button id="createLocalZoneDelegation" type="button" class="btn btn-primary">
             {{ lang._('Create local-zone delegation rules') }}
         </button>

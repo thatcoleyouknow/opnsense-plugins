@@ -40,12 +40,13 @@ use OPNsense\Firewall\Util;
 class General extends BaseModel
 {
     /**
-     * Cross-check the local-zone resolver host/port against Unbound's live
-     * forward-zone port -- but only when the host is actually 127.0.0.1 or
-     * localhost, i.e. only when it's plausible this field is meant to point
-     * at Unbound at all. An admin who deliberately points local-zone
-     * delegation at something else (a different resolver entirely) isn't
-     * assumed to be misconfigured and isn't blocked from saving.
+     * Cross-check the local-zone resolver host/port against Dnsmasq's live
+     * config -- but only when the host is actually 127.0.0.1 or localhost,
+     * i.e. only when it's plausible this field is meant to point at
+     * Dnsmasq's own loopback DNS listener at all. An admin who deliberately
+     * points local-zone delegation at something else (a different resolver
+     * entirely) isn't assumed to be misconfigured and isn't blocked from
+     * saving.
      */
     public function performValidation($validateFullModel = false)
     {
@@ -58,16 +59,25 @@ class General extends BaseModel
                 "localZoneResolverHost"
             ));
         } elseif ((string)$this->enabled == '1' && in_array($host, ['127.0.0.1', '::1', 'localhost'], true)) {
-            $unboundPort = $this->getUnboundLoopbackPort();
-            if ($unboundPort !== null && (string)$unboundPort !== (string)$this->localZoneResolverPort) {
+            $dnsmasq = $this->getDnsmasqStatus();
+            if ($dnsmasq !== null && !$dnsmasq['enabled']) {
+                $messages->appendMessage(new Message(
+                    gettext(
+                        "The local-zone resolver host points at loopback, which normally means " .
+                        "Dnsmasq, but Dnsmasq is not enabled. Local-zone delegation (in-addr.arpa / " .
+                        "internal) will fail until Dnsmasq is enabled or this is pointed elsewhere."
+                    ),
+                    "localZoneResolverHost"
+                ));
+            } elseif ($dnsmasq !== null && $dnsmasq['port'] !== (string)$this->localZoneResolverPort) {
                 $messages->appendMessage(new Message(
                     sprintf(
                         gettext(
-                            "Unbound is currently configured on loopback port %s, which does not " .
-                            "match the local-zone resolver port configured here (%s). Local-zone " .
-                            "delegation (in-addr.arpa / internal) will fail until these match."
+                            "Dnsmasq is currently configured on port %s, which does not match the " .
+                            "local-zone resolver port configured here (%s). Local-zone delegation " .
+                            "(in-addr.arpa / internal) will fail until these match."
                         ),
-                        $unboundPort,
+                        $dnsmasq['port'],
                         (string)$this->localZoneResolverPort
                     ),
                     "localZoneResolverPort"
@@ -79,24 +89,25 @@ class General extends BaseModel
     }
 
     /**
-     * Best-effort read of Unbound's own configured loopback port, so the
+     * Best-effort read of Dnsmasq's own enabled/port state, so the
      * local-zone delegation helper can be checked against reality instead
-     * of an assumed constant. Returns null when Unbound's model can't be
-     * loaded or doesn't expose a port in the expected shape.
+     * of an assumed constant. Returns null when Dnsmasq's model can't be
+     * loaded. Dnsmasq's own port field is blank by default, meaning 53.
      */
-    private function getUnboundLoopbackPort()
+    private function getDnsmasqStatus()
     {
-        if (!class_exists('\OPNsense\Unbound\Unbound')) {
+        if (!class_exists('\OPNsense\Dnsmasq\Dnsmasq')) {
             return null;
         }
         try {
-            $unbound = new \OPNsense\Unbound\Unbound();
-            if (isset($unbound->general->port) && (string)$unbound->general->port !== '') {
-                return (string)$unbound->general->port;
-            }
+            $dnsmasq = new \OPNsense\Dnsmasq\Dnsmasq();
+            $port = (string)$dnsmasq->port !== '' ? (string)$dnsmasq->port : '53';
+            return [
+                'enabled' => (string)$dnsmasq->enable == '1',
+                'port' => $port,
+            ];
         } catch (\Throwable $e) {
             return null;
         }
-        return null;
     }
 }

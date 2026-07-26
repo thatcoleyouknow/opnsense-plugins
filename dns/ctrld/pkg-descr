@@ -1,7 +1,6 @@
 os-ctrld provides a native OPNsense GUI for configuring and running ctrld
 (https://github.com/Control-D-Inc/ctrld), a DNS forwarding proxy, as the
-client-facing DNS entry point alongside the existing Unbound and Dnsmasq
-services.
+client-facing DNS entry point alongside the existing Dnsmasq service.
 
 Unlike Unbound, ctrld's policy engine can route DNS queries to different
 upstream profiles based on the source network/VLAN, and can tag outgoing
@@ -13,10 +12,10 @@ Unbound's forward-zone model, since forward-zone selection in Unbound
 cannot vary by source client or network.
 
 In the resulting architecture, ctrld takes over the client-facing listener
-role previously held by Unbound. Unbound is not removed: it is repurposed
-to answer only *.in-addr.arpa reverse zones and the local "internal"
-domain, on its existing non-default loopback port, exactly as it does
-today for Dnsmasq. Dnsmasq continues to handle DHCP unchanged.
+role previously held by Unbound. Dnsmasq continues to handle DHCP
+unchanged, and also answers *.in-addr.arpa reverse zones and the local
+"internal" domain directly on its existing non-default loopback port --
+Unbound has no remaining role and can be disabled entirely.
 
 Why not just run multiple independent validating resolvers (Unbound or
 PowerDNS Recursor instances), each statically bound to one interface with

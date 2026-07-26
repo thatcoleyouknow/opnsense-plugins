@@ -3,7 +3,7 @@
         <id>general.enabled</id>
         <label>Enable ctrld</label>
         <type>checkbox</type>
-        <help>Starts ctrld as the client-facing DNS listener on the interfaces configured below. Unbound and Dnsmasq keep running unchanged.</help>
+        <help>Starts ctrld as the client-facing DNS listener on the interfaces configured below. Dnsmasq keeps running unchanged.</help>
     </field>
     <field>
         <id>general.logLevel</id>
@@ -15,12 +15,12 @@
         <id>general.localZoneResolverHost</id>
         <label>Local-zone resolver host</label>
         <type>text</type>
-        <help>Address of the local resolver that *.in-addr.arpa reverse zones and the internal domain are delegated to -- normally Unbound, rebound to listen on this loopback address only.</help>
+        <help>Address of the local resolver that *.in-addr.arpa reverse zones and the internal domain are delegated to -- normally Dnsmasq's own loopback DNS listener.</help>
     </field>
     <field>
         <id>general.localZoneResolverPort</id>
         <label>Local-zone resolver port</label>
         <type>text</type>
-        <help>Port Unbound is listening on after being rebound to loopback-only. Checked against Unbound's live configuration when available.</help>
+        <help>Port Dnsmasq's DNS component is listening on (Services &gt; Dnsmasq DNS/DHCP &gt; General). Checked against Dnsmasq's live configuration when available.</help>
     </field>
 </form>

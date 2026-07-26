@@ -46,7 +46,7 @@ parsing) hasn't been exercised against a live `ctrld` instance yet.
   every settings field, known limitations, and troubleshooting.
 - [`dns/ctrld/docs/hybrid-dns-howto.md`](dns/ctrld/docs/hybrid-dns-howto.md)
   — step-by-step guide to actually configuring a combined
-  Unbound + Dnsmasq + ctrld/NextDNS setup, the reason this plugin exists.
+  Dnsmasq + ctrld/NextDNS setup, the reason this plugin exists.
 
 ## Known prerequisite before a real upstream PR
 

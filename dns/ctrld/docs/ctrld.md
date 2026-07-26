@@ -4,10 +4,12 @@
 
 [ctrld](https://github.com/Control-D-Inc/ctrld) is a DNS forwarding proxy
 from Control-D. This plugin gives it a native OPNsense GUI and runs it
-alongside the existing Unbound and Dnsmasq services, rather than replacing
-them: ctrld takes over the client-facing DNS listener role, Unbound is
-repurposed to answer only reverse (`*.in-addr.arpa`) and local `internal`
-zone lookups, and Dnsmasq keeps handling DHCP unchanged.
+alongside the existing Dnsmasq service, rather than replacing it: ctrld
+takes over the client-facing DNS listener role, and Dnsmasq keeps handling
+DHCP unchanged while also answering reverse (`*.in-addr.arpa`) and local
+`internal` zone lookups on its own loopback DNS port. Unbound has no role
+in this architecture and can be disabled entirely — see the
+[hybrid DNS how-to](hybrid-dns-howto.md).
 
 Unlike Unbound, ctrld's policy engine can route DNS queries to different
 upstream profiles based on the source network, and can tag outgoing
@@ -69,9 +71,9 @@ binary, it does not install one (see **Known limitations** below).
 
 | Field | Description |
 |---|---|
-| Enable ctrld | Starts ctrld as the client-facing DNS listener on the interfaces configured under the Listeners tab. Unbound and Dnsmasq keep running unchanged. |
+| Enable ctrld | Starts ctrld as the client-facing DNS listener on the interfaces configured under the Listeners tab. Dnsmasq keeps running unchanged. |
 | Log level | Verbosity of ctrld's own service log. |
-| Local-zone resolver host/port | Where `*.in-addr.arpa` and `internal` queries are delegated to — normally Unbound, rebound to listen on loopback only. See the [hybrid DNS how-to](hybrid-dns-howto.md). |
+| Local-zone resolver host/port | Where `*.in-addr.arpa` and `internal` queries are delegated to — normally Dnsmasq's own loopback DNS listener. See the [hybrid DNS how-to](hybrid-dns-howto.md). |
 
 ### Listeners tab
 
@@ -83,12 +85,12 @@ interface (never "all interfaces"/`0.0.0.0`) and port.
 | Enabled | Whether this listener starts with the service. |
 | Description | Label shown in the list and used as the policy name in the generated config. |
 | Interface | The specific interface/VLAN to bind to. |
-| Port | Usually 53. Checked against Unbound/Dnsmasq's own bound ports on save. |
+| Port | Usually 53. Checked against Unbound's/Dnsmasq's own bound ports on save, as a defensive check in case either is still running on that interface. |
 
 ### Upstreams tab
 
 One row per upstream resolver profile — typically one NextDNS profile per
-VLAN, plus one entry representing Unbound for local-zone delegation.
+VLAN, plus one entry representing Dnsmasq for local-zone delegation.
 
 | Field | Description |
 |---|---|
@@ -117,7 +119,7 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 ### Local-Zone Delegation and Discovered Clients tabs
 
 The Local-Zone Delegation tab is a guided shortcut that creates an Upstream
-row for Unbound (using the General tab's host/port) plus two Policy rows
+row for Dnsmasq (using the General tab's host/port) plus two Policy rows
 delegating `168.192.in-addr.arpa` and `internal` to it — the same result as
 adding those rows by hand. Discovered Clients mirrors `ctrld clients list`
 output so you don't need SSH to see what ctrld has seen.
@@ -149,5 +151,7 @@ does this for you.
 
 **Config validation flags a listener as conflicting with Unbound/Dnsmasq.**
 This is a live check against those services' own config models — resolve
-the actual conflict (usually: Unbound hasn't been rebound to loopback-only
-yet, see the [how-to](hybrid-dns-howto.md)) rather than working around it.
+the actual conflict (usually: Unbound is still enabled and bound to the
+same interface/port a listener wants; disable it per the
+[how-to](hybrid-dns-howto.md#7-disable-unbound-optional-cleanup)) rather
+than working around it.
