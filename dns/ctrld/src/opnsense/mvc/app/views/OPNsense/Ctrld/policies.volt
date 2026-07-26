@@ -14,6 +14,25 @@
         // restart the service on their own -- this Apply button does that.
         $("#applyPoliciesAct").SimpleActionButton({});
 
+        // Suggest a CIDR from the selected listener's own interface, for
+        // cidr-type rules -- purely a convenience default. Only fills the
+        // field when it's currently empty, so it never overwrites a value
+        // already typed (a narrower range, a non-standard setup, etc.);
+        // the field itself stays a normal editable text input either way.
+        $(document).on('change', '[id="policy.listener"], [id="policy.matchType"]', function () {
+            var $matchValue = $('[id="policy.matchValue"]');
+            var matchType = $('[id="policy.matchType"]').val();
+            var listenerUuid = $('[id="policy.listener"]').val();
+            if (matchType !== 'cidr' || !listenerUuid || $matchValue.val().trim() !== '') {
+                return;
+            }
+            ajaxCall("/api/ctrld/listener/cidr/" + listenerUuid, {}, function (response) {
+                if (response && response.cidr && $matchValue.val().trim() === '') {
+                    $matchValue.val(response.cidr);
+                }
+            });
+        });
+
         updateServiceControlUI('ctrld');
     });
 </script>

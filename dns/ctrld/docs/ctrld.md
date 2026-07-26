@@ -125,7 +125,7 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 | Description | Label shown in the list. |
 | Listener | Which listener this rule applies to. |
 | Match type | `cidr` for VLAN/network routing, `domain` for split-horizon delegation (e.g. `*.in-addr.arpa`, `internal`), `mac` for per-device rules. |
-| Match value | The CIDR, domain, or MAC address to match, depending on match type. |
+| Match value | The CIDR, domain, or MAC address to match, depending on match type. For a `cidr` rule, leave blank when picking a listener and its interface's network is filled in automatically -- fully editable/overridable, not a locked value. |
 | Upstream profile | Where matching queries are routed. |
 | Fallback upstream | Optional. Tried only if the primary upstream above times out or returns SERVFAIL -- not on every query. Leave blank for no fallback. |
 

@@ -30,6 +30,7 @@
 namespace OPNsense\Ctrld\Api;
 
 use OPNsense\Base\ApiMutableModelControllerBase;
+use OPNsense\Core\Config;
 
 /**
  * Class ListenerController
@@ -46,6 +47,44 @@ class ListenerController extends ApiMutableModelControllerBase
      * reasoning as UpstreamController's use of this).
      */
     protected static $internalModelUseSafeDelete = true;
+
+    /**
+     * Suggest the CIDR of the interface a listener is bound to, for the
+     * Policy dialog's "Match value" auto-fill -- purely a convenience
+     * default; the field it feeds stays a normal editable text input, so
+     * this never removes the ability to enter a different CIDR by hand
+     * (a narrower range, a non-standard setup, etc.).
+     *
+     * gen_subnet() is OPNsense's own real utility for this (confirmed
+     * against src/etc/inc/util.inc), not hand-rolled network math: it
+     * masks ipaddr down to the network address for the given prefix
+     * length. Returns null (not an error) for the Loopback pseudo-option,
+     * an interface with no configured IPv4 address, or any other case
+     * where there's nothing sensible to suggest.
+     */
+    public function cidrAction($uuid)
+    {
+        $data = $this->getBase('listener', 'listeners.listener', $uuid);
+        $interface = (string)($data['listener']['interface'] ?? '');
+        if ($interface === '' || $interface === 'lo0') {
+            return ['cidr' => null];
+        }
+
+        $configObj = Config::getInstance()->object();
+        if (!isset($configObj->interfaces->$interface)) {
+            return ['cidr' => null];
+        }
+
+        $ifCfg = $configObj->interfaces->$interface;
+        $ipaddr = (string)($ifCfg->ipaddr ?? '');
+        $subnet = (string)($ifCfg->subnet ?? '');
+        $network = $subnet !== '' ? gen_subnet($ipaddr, $subnet) : '';
+        if ($network === '') {
+            return ['cidr' => null];
+        }
+
+        return ['cidr' => $network . '/' . $subnet];
+    }
 
     public function searchItemAction()
     {
