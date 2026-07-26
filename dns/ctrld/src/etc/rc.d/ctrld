@@ -12,11 +12,11 @@
 # ctrld has no FreeBSD-native rc.d integration of its own -- it ships as a
 # bare binary (see dns/ctrld/docs/ctrld.md) -- so this wraps `ctrld run` in
 # daemon(8) rather than depending on ctrld's own start/stop/service
-# subcommands, whose exact FreeBSD behavior isn't confirmed. Log output is
-# intentionally sent to /dev/null rather than patched onto a daemon(8)
-# flag: check ctrld's own docs/config.md for a native log_path config key
-# before adding log capture here, since a daemon(8)-flag hack would
-# silently revert on any future rc.d regeneration.
+# subcommands, whose exact FreeBSD behavior isn't confirmed. daemon(8)'s -f
+# flag sends ctrld's own stdout/stderr to /dev/null; its actual log output
+# goes to /var/log/ctrld.log instead, via the log_path set in the rendered
+# ctrld.toml (see service/templates/OPNsense/Ctrld/ctrld.toml) -- viewable
+# from Services > ctrld > Log.
 
 . /etc/rc.subr
 
@@ -34,5 +34,19 @@ pidfile="${ctrld_pidfile}"
 procname="${ctrld_bin}"
 command="/usr/sbin/daemon"
 command_args="-c -f -r -p ${ctrld_pidfile} -T ctrld ${ctrld_bin} run --config ${ctrld_config}"
+
+# Without this, rc.subr rejects "reload" as an unrecognized directive and
+# exits non-zero without touching the running process -- silently, since
+# ApiMutableServiceControllerBase::reconfigureAction() (core OPNsense,
+# invoked by this plugin's Apply buttons) doesn't check that exit status.
+# `ctrld reload` is ctrld's own subcommand for telling an already-running
+# instance to reload its config (confirmed in ctrld's own --help output),
+# distinct from restarting the daemon(8)-wrapped process entirely.
+extra_commands="reload"
+reload_cmd="ctrld_reload"
+ctrld_reload()
+{
+    ${ctrld_bin} reload
+}
 
 run_rc_command "$1"

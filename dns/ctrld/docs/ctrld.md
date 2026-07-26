@@ -149,6 +149,14 @@ host/port, and one `domain`-match Policy row per zone per listener.
 Discovered Clients mirrors `ctrld clients list` output so you don't need
 SSH to see what ctrld has seen.
 
+### Log tab
+
+Shows the last 500 lines of ctrld's own service log
+(`/var/log/ctrld.log`, set via `log_path` in the rendered config -- not
+user-configurable) with a manual Refresh button. This is the first place
+to look when something doesn't seem to be working: an empty log after
+enabling the service usually means ctrld never actually started.
+
 ## Known limitations
 
 - **No FreeBSD port for `ctrld` yet.** It's distributed only as a manual
@@ -157,8 +165,11 @@ SSH to see what ctrld has seen.
   toward its own port dependency.
 - **`ctrld clients list` output parsing is a best-effort table parse.**
   ctrld has no JSON/API mode for client discovery; the Discovered Clients
-  tab assumes a specific column layout that should be spot-checked against
-  a real `ctrld clients list` run.
+  tab assumes a header row containing the word "ip" (case-insensitive) and
+  bails out (returning zero rows, not an error) if the real output doesn't
+  look like that -- a likely cause if the tab stays empty despite traffic
+  having flowed. Run `ctrld clients list` directly (SSH) to compare its
+  real output against `ClientsController::searchAction()`'s assumptions.
 - **The generated `ctrld.toml` matches ctrld's documented config shape**
   (`networks`/`rules` arrays, multi-upstream fallback lists,
   `failover_rcodes`) verified against ctrld's own `docs/config.md` and by
@@ -202,3 +213,23 @@ DHCP/PPP on WAN"** -- it's on by default, and when it is, your ISP's
 DHCP-assigned DNS servers get written into `/etc/resolv.conf` ahead of
 whatever's manually configured. Uncheck it. See the how-to's
 [loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too).
+
+**The service-status widget (top of the page) goes blank/hidden after
+clicking Apply, and doesn't come back without a page refresh.** Check the
+**Log** tab first -- if it's empty, ctrld likely never started
+(`/usr/local/bin/ctrld` missing, a malformed `ctrld.toml`, or a port
+conflict) and `/api/ctrld/service/status` is getting back something the
+widget-refresh code doesn't know how to render, leaving it stuck in a
+half-updated state. If Apply itself fails outright, you'll now get an
+error dialog naming the actual problem; the widget going blank with *no*
+dialog specifically points at the status check itself, not the reconfigure
+step. SSH and check `service ctrld status` / `ps aux | grep ctrld`
+directly to confirm whether it's actually running.
+
+**Discovered Clients stays empty despite the service running.** Two
+independent possible causes, check in this order: (1) has any client on a
+configured VLAN actually sent a DNS query through a ctrld listener yet --
+if nothing's queried through it, there's nothing to discover, which is
+correct behavior, not a bug; (2) if traffic has definitely flowed, the
+`ctrld clients list` output-parsing assumption above may not match ctrld's
+real output on your version -- run it directly over SSH and compare.

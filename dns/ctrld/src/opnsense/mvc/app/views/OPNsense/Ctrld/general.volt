@@ -37,6 +37,15 @@
             search:'/api/ctrld/clients/search'
         });
 
+        function refreshCtrldLog() {
+            $("#ctrldLogOutput").text("Loading...");
+            ajaxCall("/api/ctrld/service/log", {}, function(data){
+                $("#ctrldLogOutput").text((data && typeof data.log === 'string' && data.log !== '') ? data.log : '(empty)');
+            });
+        }
+        $("#refreshCtrldLog").click(refreshCtrldLog);
+        refreshCtrldLog();
+
         // NextDNS quick-add: derive type/endpoint from a pasted profile ID.
         // Field ids are rendered as literal id="upstream.nextdnsProfileId"
         // (a dotted id, not data-id) by OPNsense's form partials.
@@ -83,40 +92,80 @@
         // 168.192.in-addr.arpa zone covers the common 192.168.0.0/16 home
         // range specifically; add further reverse-zone rows by hand on the
         // Policies tab for other private ranges (10.0.0.0/8, etc.).
+        //
+        // Checks existing Policy rows (not just the Upstream row) before
+        // creating anything, and disables the button while running with a
+        // completion dialog at the end -- clicking this used to give no
+        // feedback at all, and a second click created duplicate policy rows
+        // (the upstream reuse check already existed, but nothing analogous
+        // guarded policy creation).
         $("#createLocalZoneDelegation").click(function(){
+            var $btn = $(this);
+            if ($btn.prop('disabled')) {
+                return;
+            }
             var host = $('[id="general.localZoneResolverHost"]').val();
             var port = $('[id="general.localZoneResolverPort"]').val();
+            var zones = ['168.192.in-addr.arpa', 'internal'];
+            var originalHtml = $btn.html();
 
-            function createDelegationRules(upstreamUuid) {
+            $btn.prop('disabled', true).html('<i class="fa fa-spinner fa-pulse"></i> ' + originalHtml);
+
+            function finish(message, isError) {
+                $btn.prop('disabled', false).html(originalHtml);
+                $("#grid-upstreams").bootgrid('reload');
+                $("#grid-policies").bootgrid('reload');
+                BootstrapDialog.show({
+                    type: isError ? BootstrapDialog.TYPE_WARNING : BootstrapDialog.TYPE_SUCCESS,
+                    title: 'Local-zone delegation',
+                    message: message
+                });
+            }
+
+            function withUpstream(upstreamUuid) {
                 ajaxCall("/api/ctrld/listener/searchItem", {}, function(listenerResponse){
                     var listeners = (listenerResponse.rows || []).filter(function(row){
                         return row.enabled === '1';
                     });
                     if (listeners.length === 0) {
-                        alert("Add at least one listener first -- local-zone delegation rules are created per listener.");
+                        finish("Add at least one listener first -- local-zone delegation rules are created per listener.", true);
                         return;
                     }
-                    listeners.forEach(function(listener){
-                        ['168.192.in-addr.arpa', 'internal'].forEach(function(zone){
-                            ajaxCall("/api/ctrld/policy/addItem", {
-                                policy: {
-                                    enabled: '1',
-                                    description: 'Local-zone delegation: ' + zone,
-                                    listener: listener.uuid,
-                                    matchType: 'domain',
-                                    matchValue: zone,
-                                    upstream: upstreamUuid
+                    ajaxCall("/api/ctrld/policy/searchItem", {}, function(policyResponse){
+                        var existingPolicies = policyResponse.rows || [];
+                        function alreadyExists(listenerUuid, zone) {
+                            return existingPolicies.some(function(row){
+                                return row.listener === listenerUuid && row.matchType === 'domain' && row.matchValue === zone;
+                            });
+                        }
+                        var toCreate = [];
+                        listeners.forEach(function(listener){
+                            zones.forEach(function(zone){
+                                if (!alreadyExists(listener.uuid, zone)) {
+                                    toCreate.push({listener: listener, zone: zone});
                                 }
-                            }, function(policyResponse){
-                                if (policyResponse.result === 'failed') {
-                                    alert("Failed to create the " + zone + " delegation rule for listener " + listener.description + ".");
-                                    return;
-                                }
-                                $("#grid-policies").bootgrid('reload');
                             });
                         });
+                        if (toCreate.length === 0) {
+                            finish("Nothing to do -- local-zone delegation rules already exist for every enabled listener.");
+                            return;
+                        }
+                        var deferreds = toCreate.map(function(item){
+                            return ajaxCall("/api/ctrld/policy/addItem", {
+                                policy: {
+                                    enabled: '1',
+                                    description: 'Local-zone delegation: ' + item.zone,
+                                    listener: item.listener.uuid,
+                                    matchType: 'domain',
+                                    matchValue: item.zone,
+                                    upstream: upstreamUuid
+                                }
+                            });
+                        });
+                        $.when.apply($, deferreds).always(function(){
+                            finish("Created " + toCreate.length + " local-zone delegation rule(s).");
+                        });
                     });
-                    $("#grid-upstreams").bootgrid('reload');
                 });
             }
 
@@ -126,7 +175,7 @@
                 })[0];
 
                 if (existing) {
-                    createDelegationRules(existing.uuid);
+                    withUpstream(existing.uuid);
                     return;
                 }
 
@@ -140,10 +189,10 @@
                     }
                 }, function(addResponse){
                     if (addResponse.result === 'failed' || !addResponse.uuid) {
-                        alert("Failed to create the Local resolver upstream -- check the Local-zone resolver host/port on the General tab.");
+                        finish("Failed to create the Local resolver upstream -- check the Local-zone resolver host/port on the General tab.", true);
                         return;
                     }
-                    createDelegationRules(addResponse.uuid);
+                    withUpstream(addResponse.uuid);
                 });
             });
         });
@@ -159,6 +208,7 @@
     <li><a data-toggle="tab" href="#policies">{{ lang._('Policies') }}</a></li>
     <li><a data-toggle="tab" href="#localzone">{{ lang._('Local-Zone Delegation') }}</a></li>
     <li><a data-toggle="tab" href="#clients">{{ lang._('Discovered Clients') }}</a></li>
+    <li><a data-toggle="tab" href="#log">{{ lang._('Log') }}</a></li>
 </ul>
 
 <div class="tab-content content-box">
@@ -267,5 +317,12 @@
             </thead>
             <tbody></tbody>
         </table>
+    </div>
+
+    <div id="log" class="tab-pane fade">
+        <button id="refreshCtrldLog" type="button" class="btn btn-primary" style="margin-bottom: 10px;">
+            <i class="fa fa-refresh"></i> {{ lang._('Refresh') }}
+        </button>
+        <pre id="ctrldLogOutput" style="max-height: 500px; overflow-y: auto;"></pre>
     </div>
 </div>

@@ -30,6 +30,7 @@
 namespace OPNsense\Ctrld\Api;
 
 use OPNsense\Base\ApiMutableServiceControllerBase;
+use OPNsense\Core\Backend;
 
 /**
  * Class ServiceController
@@ -48,4 +49,17 @@ class ServiceController extends ApiMutableServiceControllerBase
     protected static $internalServiceTemplate = 'OPNsense/Ctrld';
     protected static $internalServiceEnabled = 'enabled';
     protected static $internalServiceName = 'ctrld';
+
+    /**
+     * Recent lines from ctrld's own log file (/var/log/ctrld.log, set via
+     * the log_path in the rendered ctrld.toml), for the Log tab. Read-only,
+     * no parsing -- unlike ClientsController, this is just raw text for a
+     * human to read, not data driving a grid.
+     */
+    public function logAction()
+    {
+        $backend = new Backend();
+        $response = trim((string)$backend->configdRun(escapeshellarg(static::$internalServiceName) . ' log'));
+        return ['log' => $response];
+    }
 }

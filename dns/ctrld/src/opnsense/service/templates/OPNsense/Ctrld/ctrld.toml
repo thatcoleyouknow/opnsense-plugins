@@ -13,8 +13,15 @@
     ctrld itself expects -- cross-check against ctrld's docs/config.md
     before relying on this in production.
 #}
+{#
+    log_path is fixed (not user-configurable) so the plugin's own log
+    viewer (Services > ctrld > Log) always knows where to look.
+    Without it, ctrld's own stdout/stderr just go to /dev/null, since
+    rc.d/ctrld runs it under `daemon -f`.
+#}
 [service]
     log_level = '{{ OPNsense.ctrld.general.logLevel }}'
+    log_path = '/var/log/ctrld.log'
     cache_enable = {{ 'true' if OPNsense.ctrld.general.cacheEnable == '1' else 'false' }}
     cache_size = {{ OPNsense.ctrld.general.cacheSize }}
     cache_ttl_override = {{ OPNsense.ctrld.general.cacheTtlOverride }}
