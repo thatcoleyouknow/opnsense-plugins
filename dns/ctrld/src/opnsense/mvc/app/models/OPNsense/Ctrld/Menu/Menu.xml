@@ -1,14 +1,7 @@
 <menu>
-    <services>
-        <ctrld cssClass="fa fa-random fa-fw" order="60">
-            <name>ctrld</name>
-            <acl>page-ctrld-config</acl>
-            <visiblename>ctrld</visiblename>
-            <configuration>
-                <general url="/ui/ctrld/general/index" order="10">
-                    <name>Configuration</name>
-                </general>
-            </configuration>
-        </ctrld>
-    </services>
+    <Services>
+        <Ctrld VisibleName="ctrld" cssClass="fa fa-random fa-fw">
+            <General order="10" url="/ui/ctrld/general/index"/>
+        </Ctrld>
+    </Services>
 </menu>
