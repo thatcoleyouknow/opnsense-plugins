@@ -4,14 +4,33 @@
     mode) / `ctrld reload` -- never via `ctrld start --cd`, which would
     auto-generate its own config and kill Unbound/Dnsmasq.
 
+    Every array-backed model here (Listener/Upstream/Policy) is mounted at
+    a path whose last segment matches its own <items> wrapper tag name
+    (e.g. Listener.xml: <mount>//OPNsense/ctrld/listeners</mount> then
+    <items><listeners><listener type="ArrayField">...). BaseField's
+    addToXMLNode() adds one XML layer per non-ArrayField container and
+    *skips* the ArrayField's own tag (confirmed against
+    OPNsense\Base\FieldTypes\BaseField::addToXMLNode() and
+    ArrayField::actionPostLoadingEvent(), which names each row node after
+    the ArrayField's own tag) -- so the real config.xml path is mount
+    segment + items-wrapper segment + the ArrayField's own repeated tag,
+    THREE segments, not two. Confirmed against a real, deployed plugin
+    with the identical pattern: dnscrypt-proxy's Forward.xml
+    (mount=".../forward", items=<forwards><forward type="ArrayField">)
+    and its own forwarding-rules.txt template, which reads
+    'OPNsense.dnscryptproxy.forward.forwards.forward' -- not
+    '...forward.forward'. Our own General.xml has no ArrayField wrapper
+    at all, which is why 'OPNsense.ctrld.general.*' paths were never
+    affected by this.
+
     helpers.toList()/getNodeByTag() and the '@uuid' attribute-access
     pattern below are confirmed against opnsense/core's actual
     service/modules/config.py (XML->dict conversion, attributes land as
-    '@attr' keys) and template_helpers.py (Helpers.toList/getNodeByTag) --
-    not guessed. What's still unverified without a live ctrld instance:
-    the exact [listener.N.policy] "networks"/"rules" TOML array shape
-    ctrld itself expects -- cross-check against ctrld's docs/config.md
-    before relying on this in production.
+    '@attr' keys) and template_helpers.py (Helpers.toList/getNodeByTag).
+    What's still unverified without a live ctrld instance: the exact
+    [listener.N.policy] "networks"/"rules" TOML array shape ctrld itself
+    expects -- cross-check against ctrld's docs/config.md before relying
+    on this in production.
 #}
 {#
     log_path is fixed (not user-configurable) so the plugin's own log
@@ -27,10 +46,10 @@
     cache_ttl_override = {{ OPNsense.ctrld.general.cacheTtlOverride }}
     cache_serve_stale = {{ 'true' if OPNsense.ctrld.general.cacheServeStale == '1' else 'false' }}
 
-{% if helpers.toList('OPNsense.ctrld.listeners.listener') %}
+{% if helpers.toList('OPNsense.ctrld.listeners.listeners.listener') %}
 [network]
 {% set ns = namespace(net_idx = 0, net_uuid_map = {}) %}
-{% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policies.policy') %}
 {% if policy.enabled == '1' and policy.matchType == 'cidr' %}
   [network.{{ ns.net_idx }}]
     name = '{{ policy.description if policy.description else policy.matchValue }}'
@@ -42,7 +61,7 @@
 
 [upstream]
 {% set ns2 = namespace(up_idx = 0, up_uuid_map = {}) %}
-{% for upstream in helpers.toList('OPNsense.ctrld.upstreams.upstream') %}
+{% for upstream in helpers.toList('OPNsense.ctrld.upstreams.upstreams.upstream') %}
 {% if upstream.enabled == '1' %}
   [upstream.{{ ns2.up_idx }}]
     name = '{{ upstream.name }}'
@@ -56,7 +75,7 @@
 
 [listener]
 {% set ns3 = namespace(l_idx = 0) %}
-{% for listener in helpers.toList('OPNsense.ctrld.listeners.listener') %}
+{% for listener in helpers.toList('OPNsense.ctrld.listeners.listeners.listener') %}
 {% if listener.enabled == '1' %}
 {# 'lo0' is a pseudo-interface added by ListenerInterfaceField -- it has no
    node under interfaces.* to resolve via getNodeByTag, so it's mapped to
@@ -80,7 +99,7 @@
          include rather than adding a second form field for it. #}
       failover_rcodes = ['SERVFAIL']
       networks = [
-{% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policies.policy') %}
 {% if policy.enabled == '1' and policy.matchType == 'cidr' and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
 {% set policy_upstreams = ["'upstream." ~ ns2.up_uuid_map[policy.upstream] ~ "'"] %}
 {% if policy.fallbackUpstream and policy.fallbackUpstream in ns2.up_uuid_map %}
@@ -91,7 +110,7 @@
 {% endfor %}
       ]
       rules = [
-{% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policies.policy') %}
 {% if policy.enabled == '1' and policy.matchType in ['domain', 'mac'] and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
 {% set policy_upstreams = ["'upstream." ~ ns2.up_uuid_map[policy.upstream] ~ "'"] %}
 {% if policy.fallbackUpstream and policy.fallbackUpstream in ns2.up_uuid_map %}
