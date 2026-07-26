@@ -65,7 +65,7 @@ class ListenerController extends ApiMutableModelControllerBase
     public function cidrAction($uuid)
     {
         $data = $this->getBase('listener', 'listeners.listener', $uuid);
-        $interface = (string)($data['listener']['interface'] ?? '');
+        $interface = $this->selectedOption($data['listener']['interface'] ?? '');
         if ($interface === '' || $interface === 'lo0') {
             return ['cidr' => null];
         }
@@ -84,6 +84,34 @@ class ListenerController extends ApiMutableModelControllerBase
         }
 
         return ['cidr' => $network . '/' . $subnet];
+    }
+
+    /**
+     * getBase()/BaseField::getNodes() returns list-type fields (anything
+     * built on BaseListField, which our custom ListenerInterfaceField is)
+     * as their full option array -- {optKey: {value, selected}, ...}, per
+     * BaseListField::getNodeOptions() -- not the plain selected string a
+     * naive (string) cast would assume. Confirmed against real core
+     * source, not guessed: BaseField::getNodes() itself explicitly checks
+     * is_string() before treating a field's value as one, which only
+     * makes sense if it's sometimes NOT a string. Picks out the key whose
+     * entry has selected == 1; falls through unchanged if $raw is already
+     * a plain string (a simple TextField/IntegerField, unaffected by this
+     * at all).
+     */
+    private function selectedOption($raw)
+    {
+        if (is_string($raw)) {
+            return $raw;
+        }
+        if (is_array($raw)) {
+            foreach ($raw as $key => $opt) {
+                if (!empty($opt['selected'])) {
+                    return (string)$key;
+                }
+            }
+        }
+        return '';
     }
 
     public function searchItemAction()
