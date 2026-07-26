@@ -29,11 +29,16 @@ fi
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_SRC="${SCRIPT_DIR}/.."
 
-# --delete so files removed from the repo (fields/handlers that have been
-# deleted across sessions) actually stop being loaded, instead of lingering
-# alongside newer code.
+# NEVER add --delete to this rsync. /usr/local/opnsense/ is not owned
+# exclusively by this plugin -- it's the shared root for OPNsense's entire
+# MVC framework (Phalcon runtime, core libraries, every other installed
+# plugin). An earlier version of this script used --delete here and it
+# mirrored our tiny plugin subtree onto that shared directory, deleting
+# Phalcon itself and breaking the whole web GUI (recovered via
+# `opnsense-bootstrap -y` from the local console). If stale files from a
+# renamed/removed plugin file ever need cleaning up, do it by hand.
 echo "==> Syncing MVC/service/widget files into /usr/local/opnsense"
-rsync -a --delete "${PLUGIN_SRC}/src/opnsense/" /usr/local/opnsense/
+rsync -a "${PLUGIN_SRC}/src/opnsense/" /usr/local/opnsense/
 
 echo "==> Syncing plugins.inc.d hook and rc.d script into /usr/local/etc"
 rsync -a "${PLUGIN_SRC}/src/etc/" /usr/local/etc/
