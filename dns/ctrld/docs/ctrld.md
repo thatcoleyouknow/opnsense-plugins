@@ -240,13 +240,25 @@ configd restart`. `deploy-dev.sh` does this automatically as of the
 version in this repo; if you're seeing this on an older checkout, restart
 configd by hand.
 
-**Discovered Clients stays empty despite the service running.** Two
-independent possible causes, check in this order: (1) has any client on a
-configured VLAN actually sent a DNS query through a ctrld listener yet --
-if nothing's queried through it, there's nothing to discover, which is
-correct behavior, not a bug; (2) if traffic has definitely flowed, the
-`ctrld clients list` output-parsing assumption above may not match ctrld's
-real output on your version -- run it directly over SSH and compare.
+**Discovered Clients stays empty despite the service running.** Check in
+this order: (1) has any client on a configured VLAN actually sent a DNS
+query through a ctrld listener yet -- if nothing's queried through it,
+there's nothing to discover, which is correct behavior, not a bug; (2)
+ctrld's own DHCP-lease-based client discovery (`discover_dhcp`, on by
+default) relies on finding a lease file -- its own "common file
+locations" auto-discovery has no reason to know OPNsense's specific
+paths, which is why this plugin's template explicitly sets
+`dhcp_lease_file_path`/`dhcp_lease_file_format` to
+`/var/db/dnsmasq.leases` (confirmed as dnsmasq's actual FreeBSD-default
+lease file on a live box -- `ps auxww | grep dnsmasq` showed no
+`--dhcp-leasefile` override, and that file's mtime tracks real DHCP
+activity while OPNsense's other two lease-adjacent paths sat stale);
+(3) even once found, `discover_refresh_interval` defaults to 120 seconds,
+so allow a couple of minutes after traffic flows before expecting to see
+anything; (4) if all of that checks out and it's still empty, the
+`ctrld clients list` output-parsing assumption above may not match
+ctrld's real output on your version -- run it directly over SSH and
+compare.
 
 **`service ctrld stop` appears to succeed but a new ctrld process is
 running again moments later, and/or `service ctrld start` fails with

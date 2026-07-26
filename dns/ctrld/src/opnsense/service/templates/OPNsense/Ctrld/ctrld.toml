@@ -37,10 +37,26 @@
     viewer (Services > ctrld > Log) always knows where to look.
     Without it, ctrld's own stdout/stderr just go to /dev/null, since
     rc.d/ctrld runs it under `daemon -f`.
+
+    dhcp_lease_file_path/format is also fixed, not derived from anything
+    the Dnsmasq plugin exposes to us. Confirmed on a live box: dnsmasq's
+    own rc process (`/usr/local/sbin/dnsmasq -x ... -C
+    /usr/local/etc/dnsmasq.conf`) passes no --dhcp-leasefile override, so
+    it falls back to its own FreeBSD-compiled-in default of
+    /var/db/dnsmasq.leases -- confirmed by that file being the one
+    actively updated (recent mtime, real size) while OPNsense's other two
+    lease-adjacent paths (/var/dhcpd/var/db/dhcpd.leases, an ISC-format
+    leftover; /var/etc/dnsmasq-leases, an addn-hosts-format file dnsmasq.
+    inc clears on start for a watcher script this setup doesn't use) sat
+    stale/empty. Without this, ctrld's own "common file locations"
+    auto-discovery has no reason to know this OPNsense-specific path, so
+    client/hostname discovery silently finds nothing.
 #}
 [service]
     log_level = '{{ OPNsense.ctrld.general.logLevel }}'
     log_path = '/var/log/ctrld.log'
+    dhcp_lease_file_path = '/var/db/dnsmasq.leases'
+    dhcp_lease_file_format = 'dnsmasq'
     cache_enable = {{ 'true' if OPNsense.ctrld.general.cacheEnable == '1' else 'false' }}
     cache_size = {{ OPNsense.ctrld.general.cacheSize }}
     cache_ttl_override = {{ OPNsense.ctrld.general.cacheTtlOverride }}
