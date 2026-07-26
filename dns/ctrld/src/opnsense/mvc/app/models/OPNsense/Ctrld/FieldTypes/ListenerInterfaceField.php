@@ -42,15 +42,16 @@ use OPNsense\Base\FieldTypes\InterfaceField;
  * selected interface's configured IP (see
  * service/templates/OPNsense/Ctrld/ctrld.toml) -- there's no hardcoded
  * "always also bind lo0" behavior the way there is in Unbound's own
- * unbound.inc, so a listener can only ever reach 127.0.0.1 if loopback is
- * an explicitly selectable option here. The template special-cases the
- * 'lo0' key back to the literal address 127.0.0.1.
+ * unbound.inc, so a listener can only ever reach 127.0.0.1/::1 if loopback
+ * is an explicitly selectable option here. The template special-cases the
+ * 'lo0' key back to the literal address 127.0.0.1 or ::1, picked by the
+ * listener's own ipVersion field.
  */
 class ListenerInterfaceField extends InterfaceField
 {
     protected function actionPostLoadingEvent()
     {
         parent::actionPostLoadingEvent();
-        $this->internalOptionList = ['lo0' => gettext('Loopback (127.0.0.1)')] + $this->internalOptionList;
+        $this->internalOptionList = ['lo0' => gettext('Loopback (127.0.0.1 / ::1)')] + $this->internalOptionList;
     }
 }

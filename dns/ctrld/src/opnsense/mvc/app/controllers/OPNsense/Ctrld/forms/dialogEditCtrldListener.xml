@@ -15,7 +15,13 @@
         <id>listener.interface</id>
         <label>Interface</label>
         <type>dropdown</type>
-        <help>Listeners must bind to one specific interface/VLAN -- "all interfaces"/0.0.0.0 is never offered here. "Loopback (127.0.0.1)" is a special option for routing the firewall's own DNS through ctrld too, not a real interface.</help>
+        <help>Listeners must bind to one specific interface/VLAN -- "all interfaces"/0.0.0.0 is never offered here. "Loopback (127.0.0.1 / ::1)" is a special option for routing the firewall's own DNS through ctrld too, not a real interface.</help>
+    </field>
+    <field>
+        <id>listener.ipVersion</id>
+        <label>IP version</label>
+        <type>dropdown</type>
+        <help>Which address family to bind on the interface selected above. Most setups only need IPv4; add a second listener with the same interface and IPv6 selected if you also want to serve DNS over that interface's IPv6 address. Unverified against a live IPv6 setup -- see the reference doc's Known limitations.</help>
     </field>
     <field>
         <id>listener.port</id>

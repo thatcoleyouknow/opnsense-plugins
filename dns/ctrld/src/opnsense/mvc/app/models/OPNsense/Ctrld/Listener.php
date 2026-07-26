@@ -59,7 +59,9 @@ class Listener extends BaseModel
                 continue;
             }
             $shouldReport = $validateFullModel || $node->isFieldChanged();
-            $key = (string)$node->interface . '/' . (string)$node->port;
+            // ipVersion is part of the key -- a v4 and a v6 listener on the same
+            // interface+port are two distinct addresses, not a collision.
+            $key = (string)$node->interface . '/' . (string)$node->port . '/' . (string)$node->ipVersion;
             if (isset($seen[$key]) && $shouldReport) {
                 $messages->appendMessage(new Message(
                     sprintf(
@@ -101,7 +103,11 @@ class Listener extends BaseModel
      * Best-effort check against Unbound/Dnsmasq's own live config for a
      * conflicting bind on the same interface+port. Returns the conflicting
      * service's display name, or null when no conflict is found or the
-     * other service's model can't be loaded.
+     * other service's model can't be loaded. Deliberately ignores our own
+     * listener's ipVersion -- Unbound/Dnsmasq bind whatever addresses
+     * (v4 and/or v6) an interface actually has when they're active on it,
+     * so a match here is a real conflict regardless of which family our
+     * own listener picked.
      */
     private function findConflictingService($interface, $port)
     {

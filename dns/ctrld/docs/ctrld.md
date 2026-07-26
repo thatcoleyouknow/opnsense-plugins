@@ -82,16 +82,21 @@ binary, it does not install one (see **Known limitations** below).
 ### Listeners tab
 
 One row per client-facing bind point. Each listener is bound to a specific
-interface (never "all interfaces"/`0.0.0.0`) and port. A special "Loopback
-(127.0.0.1)" interface option is also offered, for routing the firewall's
-own DNS through ctrld -- see the
+interface (never "all interfaces"/`0.0.0.0`), IP version, and port. A
+special "Loopback (127.0.0.1 / ::1)" interface option is also offered, for
+routing the firewall's own DNS through ctrld -- see the
 [hybrid DNS how-to](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too).
+
+A single listener binds one address, so a VLAN that needs both IPv4 and
+IPv6 client-facing DNS needs two listener rows (same interface, same port,
+different IP version).
 
 | Field | Description |
 |---|---|
 | Enabled | Whether this listener starts with the service. |
 | Description | Label shown in the list and used as the policy name in the generated config. |
 | Interface | The specific interface/VLAN to bind to, or Loopback for the firewall's own DNS. |
+| IP version | IPv4 or IPv6 -- which of the interface's addresses (or which loopback address) to bind. |
 | Port | Usually 53. Checked against Unbound's/Dnsmasq's own bound ports on save, as a defensive check in case either is still running on that interface. |
 
 ### Upstreams tab
@@ -153,9 +158,13 @@ output so you don't need SSH to see what ctrld has seen.
   `private-domain` options have no equivalent in this plugin. If you relied
   on Unbound for this, NextDNS has its own rebinding-protection toggle in
   its dashboard's Security settings.
-- **The firewall's-own-DNS loopback listener (see the how-to) is IPv4
-  only.** Unlike Unbound, which auto-bound both `127.0.0.1` and `::1`, this
-  only covers `127.0.0.1`.
+- **IPv6 listeners are unverified against a live `ctrld` instance.**
+  Selecting "IPv6" for a listener's IP version resolves the interface's
+  `ipaddrv6` (or `::1` for Loopback) and passes it straight through as
+  ctrld's listener `ip` value -- this is standard for Go network code and
+  should work, but ctrld's own docs don't show an explicit IPv6 listener
+  example to confirm against. Spot-check `/etc/controld/ctrld.toml` and
+  that the service actually starts, the first time you use it.
 
 ## Troubleshooting
 

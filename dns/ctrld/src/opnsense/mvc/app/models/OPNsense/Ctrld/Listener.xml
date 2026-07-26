@@ -18,6 +18,14 @@
                     <Required>Y</Required>
                     <ValidationMessage>Select a specific interface/VLAN, or Loopback for the firewall's own DNS. Listeners can never be bound to all interfaces.</ValidationMessage>
                 </interface>
+                <ipVersion type="OptionField">
+                    <Default>ipv4</Default>
+                    <Required>Y</Required>
+                    <OptionValues>
+                        <ipv4>ipv4</ipv4>
+                        <ipv6>ipv6</ipv6>
+                    </OptionValues>
+                </ipVersion>
                 <port type="IntegerField">
                     <Default>53</Default>
                     <Required>Y</Required>

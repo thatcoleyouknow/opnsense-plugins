@@ -74,7 +74,13 @@ Under the **Listeners** tab, add one row per VLAN gateway:
 | LAN | *(your LAN interface)* | 53 |
 
 Each listener binds to that VLAN's specific gateway IP — never to "all
-interfaces" — so it only ever picks up traffic from that VLAN.
+interfaces" — so it only ever picks up traffic from that VLAN. Each row
+also has an **IP version** field, IPv4 by default; leave it as-is unless
+you also want to serve DNS over a VLAN's IPv6 address, in which case add a
+second row for that VLAN with the same interface/port and IPv6 selected.
+This worked example is IPv4-only throughout — see
+[ctrld.md's Known limitations](ctrld.md#known-limitations) if you use
+IPv6.
 
 ## 5. Add policy rules
 
