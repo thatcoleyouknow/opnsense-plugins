@@ -14,9 +14,9 @@
                     <Mask>/^[^'\r\n]*$/</Mask>
                     <ValidationMessage>Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </description>
-                <interface type="InterfaceField">
+                <interface type=".\ListenerInterfaceField">
                     <Required>Y</Required>
-                    <ValidationMessage>Select a specific interface/VLAN. Listeners can never be bound to all interfaces.</ValidationMessage>
+                    <ValidationMessage>Select a specific interface/VLAN, or Loopback for the firewall's own DNS. Listeners can never be bound to all interfaces.</ValidationMessage>
                 </interface>
                 <port type="IntegerField">
                     <Default>53</Default>

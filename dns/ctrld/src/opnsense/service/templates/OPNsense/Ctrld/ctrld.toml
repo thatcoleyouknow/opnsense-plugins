@@ -47,7 +47,10 @@
 {% set ns3 = namespace(l_idx = 0) %}
 {% for listener in helpers.toList('OPNsense.ctrld.listeners.listener') %}
 {% if listener.enabled == '1' %}
-{% set listener_ip = helpers.getNodeByTag('interfaces.' ~ listener.interface ~ '.ipaddr') %}
+{# 'lo0' is a pseudo-interface added by ListenerInterfaceField -- it has no
+   node under interfaces.* to resolve via getNodeByTag, so it's mapped to
+   the literal loopback address here instead. #}
+{% set listener_ip = '127.0.0.1' if listener.interface == 'lo0' else helpers.getNodeByTag('interfaces.' ~ listener.interface ~ '.ipaddr') %}
   [listener.{{ ns3.l_idx }}]
     ip = '{{ listener_ip }}'
     port = {{ listener.port }}

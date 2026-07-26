@@ -14,7 +14,8 @@ using it for anything else, it can be disabled entirely (see the last step).
 4. [Add a listener per VLAN](#4-add-a-listener-per-vlan)
 5. [Add policy rules](#5-add-policy-rules)
 6. [Enable and verify](#6-enable-and-verify)
-7. [Disable Unbound (optional cleanup)](#7-disable-unbound-optional-cleanup)
+7. [Optional: route the firewall's own DNS through ctrld too](#7-optional-route-the-firewalls-own-dns-through-ctrld-too)
+8. [Disable Unbound (optional cleanup)](#8-disable-unbound-optional-cleanup)
 
 The worked example below uses one real, previously-verified VLAN (IoT,
 interface `opt1`, gateway `192.168.3.1/24`, NextDNS profile `abc123`) plus a
@@ -124,21 +125,65 @@ DNSSEC is validated by NextDNS upstream, not independently by ctrld — see
 the [DNSSEC section](ctrld.md#dnssec) of the reference doc for the full
 tradeoff explanation.
 
-## 7. Disable Unbound (optional cleanup)
+## 7. Optional: route the firewall's own DNS through ctrld too
 
-Once step 6 is verified working, Unbound has no remaining job in this
+By default, OPNsense itself — not just your VLAN clients — resolves DNS
+through `127.0.0.1:53`, which today is Unbound. If you don't want anything
+on your network, including the firewall itself, bypassing NextDNS, route
+this through ctrld too instead of pointing it at an unrelated external
+resolver in the next step:
+
+1. **Upstreams tab**: reuse an existing NextDNS profile, or add a new one
+   dedicated to the firewall itself (recommended — gives it its own
+   distinguishable device row in the NextDNS dashboard).
+2. **Listeners tab**: add a row with **Interface: Loopback (127.0.0.1)**,
+   **Port: 53**. This is a special option this plugin adds specifically for
+   this case — it isn't a real assigned interface, so it doesn't show up
+   anywhere else in OPNsense.
+3. **Policies tab**: add a `cidr` rule matching `127.0.0.1/32` on that
+   listener, routed to the upstream from step 1 — this is the only source
+   address that will ever reach a loopback listener, so it acts as a
+   catch-all for it.
+4. Apply, then verify before changing anything else:
+
+```sh
+dig @127.0.0.1 example.com
+```
+
+Once that resolves, go to **System → Settings → General** and set **DNS
+servers** to `127.0.0.1`.
+
+> **Warning**
+> This makes the firewall's own DNS resolution — not just client traffic —
+> depend entirely on ctrld and on NextDNS being reachable over the WAN.
+> Unbound could still resolve plenty locally during a WAN outage (cached
+> answers, DHCP-registered hostnames, root-hint recursion); ctrld can't
+> reach NextDNS at all without working WAN connectivity. If the WAN is
+> down, NextDNS has an outage, or ctrld itself is misconfigured, the box
+> loses DNS for its own operation too — including OPNsense's FQDN-based
+> firewall aliases (Firewall → Aliases) silently failing to refresh. Decide
+> if that tradeoff is acceptable before doing this: it's the difference
+> between "some lookups bypass NextDNS" and "the firewall has a single
+> point of failure for its own DNS."
+
+## 8. Disable Unbound (optional cleanup)
+
+Once ctrld is verified working — for VLAN clients (step 6), and for the
+firewall itself if you did step 7 — Unbound has no remaining job in this
 architecture and can be disabled (Services → Unbound DNS → General →
 uncheck **Enable Unbound**).
 
 > **Warning**
-> Do this last, and do the step below first. OPNsense itself — not just
-> your VLAN clients — resolves DNS through `127.0.0.1:53`, which today is
-> Unbound. ctrld only binds VLAN gateway IPs (not loopback), and Dnsmasq is
-> on port `53053`, not `53` — so disabling Unbound without doing anything
-> else leaves nothing answering the firewall's own DNS queries (package
-> installs, firmware checks, NTP hostname lookups, etc. would all break).
+> Do this last, and make sure something is already answering `127.0.0.1:53`
+> for the box's own DNS before you do:
+> - If you did step 7, ctrld already is — confirm with the `dig @127.0.0.1`
+>   check above first.
+> - If you skipped step 7, go to **System → Settings → General** and set
+>   **DNS servers** to one or more resolvers not managed by this plugin
+>   (e.g. Quad9 `9.9.9.9`, Cloudflare `1.1.1.1`) instead — understanding
+>   that those specific lookups then bypass NextDNS, which is the tradeoff
+>   step 7 exists to avoid.
 >
-> Before disabling Unbound, go to **System → Settings → General** and set
-> **DNS servers** to one or more external resolvers (e.g. NextDNS's own
-> anycast IPs, or any resolver you trust) so the box keeps resolving its own
-> queries independently of the services this plugin manages.
+> Either way, disabling Unbound without first confirming *something*
+> answers `127.0.0.1:53` breaks the firewall's own DNS entirely (package
+> installs, firmware checks, NTP hostname lookups, etc.).

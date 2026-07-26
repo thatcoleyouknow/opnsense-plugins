@@ -78,13 +78,16 @@ binary, it does not install one (see **Known limitations** below).
 ### Listeners tab
 
 One row per client-facing bind point. Each listener is bound to a specific
-interface (never "all interfaces"/`0.0.0.0`) and port.
+interface (never "all interfaces"/`0.0.0.0`) and port. A special "Loopback
+(127.0.0.1)" interface option is also offered, for routing the firewall's
+own DNS through ctrld -- see the
+[hybrid DNS how-to](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too).
 
 | Field | Description |
 |---|---|
 | Enabled | Whether this listener starts with the service. |
 | Description | Label shown in the list and used as the policy name in the generated config. |
-| Interface | The specific interface/VLAN to bind to. |
+| Interface | The specific interface/VLAN to bind to, or Loopback for the firewall's own DNS. |
 | Port | Usually 53. Checked against Unbound's/Dnsmasq's own bound ports on save, as a defensive check in case either is still running on that interface. |
 
 ### Upstreams tab
@@ -153,5 +156,5 @@ does this for you.
 This is a live check against those services' own config models — resolve
 the actual conflict (usually: Unbound is still enabled and bound to the
 same interface/port a listener wants; disable it per the
-[how-to](hybrid-dns-howto.md#7-disable-unbound-optional-cleanup)) rather
+[how-to](hybrid-dns-howto.md#8-disable-unbound-optional-cleanup)) rather
 than working around it.

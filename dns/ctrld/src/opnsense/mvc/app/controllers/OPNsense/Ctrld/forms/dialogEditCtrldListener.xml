@@ -15,7 +15,7 @@
         <id>listener.interface</id>
         <label>Interface</label>
         <type>dropdown</type>
-        <help>Listeners must bind to one specific interface/VLAN -- "all interfaces"/0.0.0.0 is never offered here.</help>
+        <help>Listeners must bind to one specific interface/VLAN -- "all interfaces"/0.0.0.0 is never offered here. "Loopback (127.0.0.1)" is a special option for routing the firewall's own DNS through ctrld too, not a real interface.</help>
     </field>
     <field>
         <id>listener.port</id>
