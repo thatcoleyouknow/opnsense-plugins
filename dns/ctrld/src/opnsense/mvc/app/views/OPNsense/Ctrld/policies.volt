@@ -15,22 +15,42 @@
         $("#applyPoliciesAct").SimpleActionButton({});
 
         // Suggest a CIDR from the selected listener's own interface, for
-        // cidr-type rules -- purely a convenience default. Only fills the
-        // field when it's currently empty, so it never overwrites a value
-        // already typed (a narrower range, a non-standard setup, etc.);
-        // the field itself stays a normal editable text input either way.
-        $(document).on('change', '[id="policy.listener"], [id="policy.matchType"]', function () {
+        // cidr-type rules -- purely a convenience default. The field itself
+        // stays a normal editable text input either way.
+        //
+        // Changing the Listener always refreshes the suggestion (force):
+        // since the Listener field is required, the dropdown has no blank
+        // option and defaults to the first listener in the list, so the
+        // very act of picking the listener you actually want is itself a
+        // "change" event -- treating that like a value the user typed on
+        // purpose and refusing to overwrite it would mean the suggestion
+        // never updates after that first default selection.
+        //
+        // Changing Match type only fills when empty (not force): that event
+        // is more often exploratory (flipping through match types while
+        // deciding), so a value already typed for a previous match type is
+        // left alone rather than silently replaced.
+        function suggestPolicyCidr(force) {
             var $matchValue = $('[id="policy.matchValue"]');
             var matchType = $('[id="policy.matchType"]').val();
             var listenerUuid = $('[id="policy.listener"]').val();
-            if (matchType !== 'cidr' || !listenerUuid || $matchValue.val().trim() !== '') {
+            if (matchType !== 'cidr' || !listenerUuid) {
+                return;
+            }
+            if (!force && $matchValue.val().trim() !== '') {
                 return;
             }
             ajaxCall("/api/ctrld/listener/cidr/" + listenerUuid, {}, function (response) {
-                if (response && response.cidr && $matchValue.val().trim() === '') {
+                if (response && response.cidr && (force || $matchValue.val().trim() === '')) {
                     $matchValue.val(response.cidr);
                 }
             });
+        }
+        $(document).on('change', '[id="policy.listener"]', function () {
+            suggestPolicyCidr(true);
+        });
+        $(document).on('change', '[id="policy.matchType"]', function () {
+            suggestPolicyCidr(false);
         });
 
         updateServiceControlUI('ctrld');

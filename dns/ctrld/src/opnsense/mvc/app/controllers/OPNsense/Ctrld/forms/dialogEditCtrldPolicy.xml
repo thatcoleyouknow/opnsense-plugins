@@ -27,7 +27,7 @@
         <id>policy.matchValue</id>
         <label>Match value</label>
         <type>text</type>
-        <help>e.g. 192.168.3.0/24, internal, 168.192.in-addr.arpa, or aa:bb:cc:dd:ee:ff, depending on the match type above. For a cidr rule, leave this blank when picking a listener and its interface's own network is filled in automatically -- overwrite it freely for a narrower range or a non-standard setup.</help>
+        <help>e.g. 192.168.3.0/24, internal, 168.192.in-addr.arpa, or aa:bb:cc:dd:ee:ff, depending on the match type above. For a cidr rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- overwrite it freely for a narrower range or a non-standard setup.</help>
     </field>
     <field>
         <id>policy.upstream</id>
