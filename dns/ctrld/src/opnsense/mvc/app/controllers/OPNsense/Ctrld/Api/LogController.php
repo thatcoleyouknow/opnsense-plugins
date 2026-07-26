@@ -43,6 +43,25 @@ use OPNsense\Core\Backend;
  * has to answer the same searchPhrase/rowCount/current parameters every
  * other grid in this plugin already answers (see ClientsController for
  * the same shape applied to `ctrld clients list` instead).
+ *
+ * ctrld logs one JSON object per line (confirmed against a real running
+ * instance: {"level":"info","time":"...","message":"..."}, sometimes with
+ * extra fields like "bootstrap_ip") -- parsed into time/level/message
+ * columns when a line parses as such, so the page reads like a normal log
+ * instead of a raw JSON blob. A line that doesn't parse (unexpected format,
+ * or a future ctrld version) still shows up, verbatim, in the message
+ * column, rather than being dropped.
+ *
+ * Column values are NOT pre-escaped here: OPNsense's grid component
+ * (Tabulator, wrapped by opnsense_bootgrid.js) renders plain-string
+ * formatter output as text, not HTML -- confirmed empirically (escaping
+ * server-side produced visibly double-escaped entities like `&quot;` in
+ * the rendered page, since ctrld's JSON lines are full of literal quote
+ * characters). This is NOT the same situation as ClientsController, whose
+ * own htmlspecialchars() calls stay -- that data also feeds
+ * CtrldClients.js's dashboard widget, which builds a raw
+ * `<a href="...">${client.ip}</a>` HTML string client-side, so escaping
+ * there is genuinely load-bearing against XSS, not redundant.
  */
 class LogController extends ApiControllerBase
 {
@@ -71,7 +90,7 @@ class LogController extends ApiControllerBase
 
         $rows = [];
         foreach ($pageLines as $line) {
-            $rows[] = ['line' => htmlspecialchars($line, ENT_QUOTES, 'UTF-8')];
+            $rows[] = $this->parseLine($line);
         }
 
         return [
@@ -80,5 +99,18 @@ class LogController extends ApiControllerBase
             'total' => $total,
             'current' => $currentPage,
         ];
+    }
+
+    private function parseLine($line)
+    {
+        $decoded = json_decode($line, true);
+        if (is_array($decoded) && isset($decoded['message'])) {
+            return [
+                'time' => (string)($decoded['time'] ?? ''),
+                'level' => (string)($decoded['level'] ?? ''),
+                'message' => (string)$decoded['message'],
+            ];
+        }
+        return ['time' => '', 'level' => '', 'message' => $line];
     }
 }
