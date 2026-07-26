@@ -15,6 +15,10 @@
 #}
 [service]
     log_level = '{{ OPNsense.ctrld.general.logLevel }}'
+    cache_enable = {{ 'true' if OPNsense.ctrld.general.cacheEnable == '1' else 'false' }}
+    cache_size = {{ OPNsense.ctrld.general.cacheSize }}
+    cache_ttl_override = {{ OPNsense.ctrld.general.cacheTtlOverride }}
+    cache_serve_stale = {{ 'true' if OPNsense.ctrld.general.cacheServeStale == '1' else 'false' }}
 
 {% if helpers.toList('OPNsense.ctrld.listeners.listener') %}
 [network]
@@ -56,17 +60,30 @@
     port = {{ listener.port }}
     [listener.{{ ns3.l_idx }}.policy]
       name = '{{ listener.description if listener.description else 'listener-' ~ ns3.l_idx }}'
+      {# Fixed, not user-configurable: only takes effect for a rule/network
+         that actually has a fallback upstream set (a list of one upstream
+         has nowhere to fail over to either way), so this is safe to always
+         include rather than adding a second form field for it. #}
+      failover_rcodes = ['SERVFAIL']
       networks = [
 {% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
 {% if policy.enabled == '1' and policy.matchType == 'cidr' and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
-        { 'network.{{ ns.net_uuid_map[policy['@uuid']] }}' = ['upstream.{{ ns2.up_uuid_map[policy.upstream] }}'] },
+{% set policy_upstreams = ["'upstream." ~ ns2.up_uuid_map[policy.upstream] ~ "'"] %}
+{% if policy.fallbackUpstream and policy.fallbackUpstream in ns2.up_uuid_map %}
+{% set policy_upstreams = policy_upstreams + ["'upstream." ~ ns2.up_uuid_map[policy.fallbackUpstream] ~ "'"] %}
+{% endif %}
+        { 'network.{{ ns.net_uuid_map[policy['@uuid']] }}' = [{{ policy_upstreams|join(', ') }}] },
 {% endif %}
 {% endfor %}
       ]
       rules = [
 {% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
 {% if policy.enabled == '1' and policy.matchType in ['domain', 'mac'] and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
-        { '{{ policy.matchValue }}' = ['upstream.{{ ns2.up_uuid_map[policy.upstream] }}'] },
+{% set policy_upstreams = ["'upstream." ~ ns2.up_uuid_map[policy.upstream] ~ "'"] %}
+{% if policy.fallbackUpstream and policy.fallbackUpstream in ns2.up_uuid_map %}
+{% set policy_upstreams = policy_upstreams + ["'upstream." ~ ns2.up_uuid_map[policy.fallbackUpstream] ~ "'"] %}
+{% endif %}
+        { '{{ policy.matchValue }}' = [{{ policy_upstreams|join(', ') }}] },
 {% endif %}
 {% endfor %}
       ]

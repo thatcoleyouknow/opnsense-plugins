@@ -49,6 +49,17 @@
                     <Required>Y</Required>
                     <ValidationMessage>Select the upstream profile this rule should route matching queries to.</ValidationMessage>
                 </upstream>
+                <fallbackUpstream type="ModelRelationField">
+                    <Model>
+                        <upstreams>
+                            <source>OPNsense.Ctrld.Upstream</source>
+                            <items>upstreams.upstream</items>
+                            <display>name</display>
+                        </upstreams>
+                    </Model>
+                    <Required>N</Required>
+                    <ValidationMessage>Select a different upstream than the one above, or leave blank.</ValidationMessage>
+                </fallbackUpstream>
             </policy>
         </policies>
     </items>

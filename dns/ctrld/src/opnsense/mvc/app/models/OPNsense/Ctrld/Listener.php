@@ -109,7 +109,14 @@ class Listener extends BaseModel
             try {
                 $unbound = new \OPNsense\Unbound\Unbound();
                 if ((string)$unbound->general->enabled == '1' && (string)$unbound->general->port === (string)$port) {
-                    if ($this->interfaceListMatches((string)($unbound->general->active_interface ?? ''), $interface)) {
+                    // Unbound always implicitly binds lo0 (unbound.inc hardcodes
+                    // array_unshift($active_interfaces, 'lo0') at render time), regardless
+                    // of what's actually stored in active_interface -- so that field can
+                    // never be used to rule out a conflict for our own loopback listener.
+                    if (
+                        $interface === 'lo0' ||
+                        $this->interfaceListMatches((string)($unbound->general->active_interface ?? ''), $interface)
+                    ) {
                         return 'Unbound';
                     }
                 }

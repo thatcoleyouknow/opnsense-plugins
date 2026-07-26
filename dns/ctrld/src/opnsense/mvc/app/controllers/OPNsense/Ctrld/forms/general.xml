@@ -23,4 +23,28 @@
         <type>text</type>
         <help>Port Dnsmasq's DNS component is listening on (Services &gt; Dnsmasq DNS/DHCP &gt; General). Checked against Dnsmasq's live configuration when available.</help>
     </field>
+    <field>
+        <id>general.cacheEnable</id>
+        <label>Enable caching</label>
+        <type>checkbox</type>
+        <help>Caches resolved DNS responses in ctrld itself, for the duration of each record's own TTL. Recommended -- reduces upstream load and, combined with "Serve stale on failure" below, keeps already-seen names resolving through a brief upstream outage.</help>
+    </field>
+    <field>
+        <id>general.cacheSize</id>
+        <label>Cache size</label>
+        <type>text</type>
+        <help>Maximum number of cached records. 4096 is a reasonable default for a home/small-office network.</help>
+    </field>
+    <field>
+        <id>general.cacheTtlOverride</id>
+        <label>Cache TTL override</label>
+        <type>text</type>
+        <help>Leave at 0 to respect each record's own TTL. A positive value (seconds) caches every record for that long regardless of its real TTL.</help>
+    </field>
+    <field>
+        <id>general.cacheServeStale</id>
+        <label>Serve stale on failure</label>
+        <type>checkbox</type>
+        <help>When an upstream is unreachable, keep answering already-cached names from the stale cache instead of failing outright, until the upstream comes back. Only takes effect while caching is enabled above.</help>
+    </field>
 </form>

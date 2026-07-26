@@ -35,4 +35,10 @@
         <type>dropdown</type>
         <help>Matching queries are routed to this upstream profile. Select the local-zone resolver upstream here for *.in-addr.arpa / internal delegation rules.</help>
     </field>
+    <field>
+        <id>policy.fallbackUpstream</id>
+        <label>Fallback upstream (optional)</label>
+        <type>dropdown</type>
+        <help>Optional. If set, ctrld tries the upstream above first and only falls back to this one on timeout or a SERVFAIL response -- not on every query. Leave blank to have no fallback (a failed upstream simply fails the query, as today). Useful for a listener that should keep answering if its primary upstream is briefly unreachable.</help>
+    </field>
 </form>

@@ -79,6 +79,14 @@ class Policy extends BaseModel
                     "policies.policy.{$uuid}.matchValue"
                 ));
             }
+
+            $fallbackUpstream = (string)$node->fallbackUpstream;
+            if ($fallbackUpstream !== '' && $fallbackUpstream === (string)$node->upstream) {
+                $messages->appendMessage(new Message(
+                    gettext("Fallback upstream must be different from the primary upstream above."),
+                    "policies.policy.{$uuid}.fallbackUpstream"
+                ));
+            }
         }
 
         return $messages;

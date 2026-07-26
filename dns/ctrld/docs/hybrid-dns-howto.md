@@ -133,38 +133,60 @@ on your network, including the firewall itself, bypassing NextDNS, route
 this through ctrld too instead of pointing it at an unrelated external
 resolver in the next step:
 
-1. **Upstreams tab**: reuse an existing NextDNS profile, or add a new one
+1. **General tab**: leave **Enable caching** and **Serve stale on failure**
+   turned on (the default). `ctrld` then keeps answering already-resolved
+   names from its own cache during a brief NextDNS/WAN hiccup, instead of
+   failing outright — this alone covers most short blips.
+2. **Upstreams tab**: reuse an existing NextDNS profile, or add a new one
    dedicated to the firewall itself (recommended — gives it its own
-   distinguishable device row in the NextDNS dashboard).
-2. **Listeners tab**: add a row with **Interface: Loopback (127.0.0.1)**,
+   distinguishable device row in the NextDNS dashboard). Also add a second,
+   non-NextDNS upstream to use as a fallback — e.g. Quad9 (`type: dot`,
+   endpoint `9.9.9.9`) — for step 4 below.
+3. **Listeners tab**: add a row with **Interface: Loopback (127.0.0.1)**,
    **Port: 53**. This is a special option this plugin adds specifically for
    this case — it isn't a real assigned interface, so it doesn't show up
    anywhere else in OPNsense.
-3. **Policies tab**: add a `cidr` rule matching `127.0.0.1/32` on that
-   listener, routed to the upstream from step 1 — this is the only source
-   address that will ever reach a loopback listener, so it acts as a
-   catch-all for it.
-4. Apply, then verify before changing anything else:
+4. **Policies tab**: add a `cidr` rule matching `127.0.0.1/32` on that
+   listener, routed to the NextDNS upstream from step 2 — this is the only
+   source address that will ever reach a loopback listener, so it acts as a
+   catch-all for it. Optionally set **Fallback upstream** to the Quad9 (or
+   similar) upstream from step 2: `ctrld` then only falls back to it if
+   NextDNS specifically times out or errors, not on every query — NextDNS
+   still handles the normal case.
+5. Apply, then verify before changing anything else:
 
 ```sh
 dig @127.0.0.1 example.com
 ```
 
-Once that resolves, go to **System → Settings → General** and set **DNS
-servers** to `127.0.0.1`.
+6. Go to **System → Settings → General** and set **DNS servers** to
+   `127.0.0.1`, **and uncheck "Allow DNS server list to be overridden by
+   DHCP/PPP on WAN"** if it's checked (it's OPNsense's default). This isn't
+   optional: with it checked, your ISP's own DHCP-assigned DNS servers get
+   written into `/etc/resolv.conf` *ahead of* the `127.0.0.1` entry you just
+   added, and the firewall ends up using those directly — silently
+   bypassing everything above.
 
 > **Warning**
-> This makes the firewall's own DNS resolution — not just client traffic —
-> depend entirely on ctrld and on NextDNS being reachable over the WAN.
-> Unbound could still resolve plenty locally during a WAN outage (cached
-> answers, DHCP-registered hostnames, root-hint recursion); ctrld can't
-> reach NextDNS at all without working WAN connectivity. If the WAN is
-> down, NextDNS has an outage, or ctrld itself is misconfigured, the box
-> loses DNS for its own operation too — including OPNsense's FQDN-based
-> firewall aliases (Firewall → Aliases) silently failing to refresh. Decide
-> if that tradeoff is acceptable before doing this: it's the difference
-> between "some lookups bypass NextDNS" and "the firewall has a single
-> point of failure for its own DNS."
+> This still makes the firewall's own DNS resolution depend on `ctrld` and
+> on at least one of its configured upstreams being reachable over the WAN.
+> Caching plus a fallback upstream (steps 1 and 4) closes most of the gap —
+> a brief NextDNS outage no longer breaks already-seen names, and a longer
+> one fails over to your fallback upstream instead of failing outright —
+> but a total WAN outage still breaks resolution for anything not already
+> cached, same as it would for any DNS setup that isn't doing fully local
+> recursive resolution. That's a real difference from how Unbound behaved
+> (it could resolve plenty locally, WAN or not), and it also means OPNsense's
+> FQDN-based firewall aliases (Firewall → Aliases) stop refreshing during
+> that window. Decide if that residual risk is acceptable before doing this.
+>
+> Two smaller things Unbound provided that this setup doesn't replicate:
+> **DNS Rebinding Protection** (Unbound's `private-address`/`private-domain`
+> options) has no equivalent here — if you relied on it, NextDNS has its own
+> rebinding-protection toggle in its dashboard's Security settings. And this
+> loopback listener only covers IPv4 (`127.0.0.1`); Unbound also
+> auto-bound `::1`, which this setup doesn't replicate — not expected to
+> matter unless something on the box specifically queries `::1`.
 
 ## 8. Disable Unbound (optional cleanup)
 
@@ -184,6 +206,13 @@ uncheck **Enable Unbound**).
 >   that those specific lookups then bypass NextDNS, which is the tradeoff
 >   step 7 exists to avoid.
 >
-> Either way, disabling Unbound without first confirming *something*
-> answers `127.0.0.1:53` breaks the firewall's own DNS entirely (package
-> installs, firmware checks, NTP hostname lookups, etc.).
+> Either way, also uncheck **"Allow DNS server list to be overridden by
+> DHCP/PPP on WAN"** on that same System → Settings → General page if it's
+> checked (it's on by default). Otherwise your ISP's DHCP-assigned DNS
+> servers get written ahead of whatever you just configured, and get used
+> instead of it.
+>
+> Disabling Unbound without first confirming *something* answers
+> `127.0.0.1:53` -- and that nothing else can preempt it -- breaks the
+> firewall's own DNS entirely (package installs, firmware checks, NTP
+> hostname lookups, etc.).

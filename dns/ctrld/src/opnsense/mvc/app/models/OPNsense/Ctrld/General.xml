@@ -30,5 +30,25 @@
             <MaximumValue>65535</MaximumValue>
             <ValidationMessage>Choose a port between 1 and 65535.</ValidationMessage>
         </localZoneResolverPort>
+        <cacheEnable type="BooleanField">
+            <Default>1</Default>
+            <Required>Y</Required>
+        </cacheEnable>
+        <cacheSize type="IntegerField">
+            <Default>4096</Default>
+            <Required>Y</Required>
+            <MinimumValue>1</MinimumValue>
+            <ValidationMessage>Enter a positive number of cached records.</ValidationMessage>
+        </cacheSize>
+        <cacheTtlOverride type="IntegerField">
+            <Default>0</Default>
+            <Required>Y</Required>
+            <MinimumValue>0</MinimumValue>
+            <ValidationMessage>Enter 0 (use each record's real TTL) or a positive number of seconds.</ValidationMessage>
+        </cacheTtlOverride>
+        <cacheServeStale type="BooleanField">
+            <Default>1</Default>
+            <Required>Y</Required>
+        </cacheServeStale>
     </items>
 </model>

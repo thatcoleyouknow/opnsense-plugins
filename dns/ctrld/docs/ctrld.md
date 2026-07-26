@@ -74,6 +74,10 @@ binary, it does not install one (see **Known limitations** below).
 | Enable ctrld | Starts ctrld as the client-facing DNS listener on the interfaces configured under the Listeners tab. Dnsmasq keeps running unchanged. |
 | Log level | Verbosity of ctrld's own service log. |
 | Local-zone resolver host/port | Where `*.in-addr.arpa` and `internal` queries are delegated to — normally Dnsmasq's own loopback DNS listener. See the [hybrid DNS how-to](hybrid-dns-howto.md). |
+| Enable caching | Caches resolved responses in ctrld itself for each record's own TTL. On by default. |
+| Cache size | Maximum number of cached records. |
+| Cache TTL override | 0 respects each record's real TTL; a positive value (seconds) overrides it. |
+| Serve stale on failure | Keeps answering already-cached names from a stale cache during an upstream outage, instead of failing outright. On by default; requires caching to be enabled. |
 
 ### Listeners tab
 
@@ -118,6 +122,7 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 | Match type | `cidr` for VLAN/network routing, `domain` for split-horizon delegation (e.g. `*.in-addr.arpa`, `internal`), `mac` for per-device rules. |
 | Match value | The CIDR, domain, or MAC address to match, depending on match type. |
 | Upstream profile | Where matching queries are routed. |
+| Fallback upstream | Optional. Tried only if the primary upstream above times out or returns SERVFAIL -- not on every query. Leave blank for no fallback. |
 
 ### Local-Zone Delegation and Discovered Clients tabs
 
@@ -137,10 +142,20 @@ output so you don't need SSH to see what ctrld has seen.
   ctrld has no JSON/API mode for client discovery; the Discovered Clients
   tab assumes a specific column layout that should be spot-checked against
   a real `ctrld clients list` run.
-- **The generated `ctrld.toml` policy syntax (`networks`/`rules` arrays)**
-  hasn't been verified against a live ctrld instance — cross-check the
-  rendered config (`/etc/controld/ctrld.toml`) against ctrld's own
-  `docs/config.md` the first time you enable the service.
+- **The generated `ctrld.toml` matches ctrld's documented config shape**
+  (`networks`/`rules` arrays, multi-upstream fallback lists,
+  `failover_rcodes`) verified against ctrld's own `docs/config.md` and by
+  rendering the template against sample data and parsing the result as
+  TOML -- but no live `ctrld` instance has actually consumed this file yet.
+  Spot-check the rendered config (`/etc/controld/ctrld.toml`) the first
+  time you enable the service.
+- **No DNS Rebinding Protection.** Unbound's `private-address`/
+  `private-domain` options have no equivalent in this plugin. If you relied
+  on Unbound for this, NextDNS has its own rebinding-protection toggle in
+  its dashboard's Security settings.
+- **The firewall's-own-DNS loopback listener (see the how-to) is IPv4
+  only.** Unlike Unbound, which auto-bound both `127.0.0.1` and `::1`, this
+  only covers `127.0.0.1`.
 
 ## Troubleshooting
 
@@ -158,3 +173,11 @@ the actual conflict (usually: Unbound is still enabled and bound to the
 same interface/port a listener wants; disable it per the
 [how-to](hybrid-dns-howto.md#8-disable-unbound-optional-cleanup)) rather
 than working around it.
+
+**The firewall itself still seems to be using another DNS server after
+pointing System DNS servers at ctrld's loopback listener.** Check
+**System → Settings → General → "Allow DNS server list to be overridden by
+DHCP/PPP on WAN"** -- it's on by default, and when it is, your ISP's
+DHCP-assigned DNS servers get written into `/etc/resolv.conf` ahead of
+whatever's manually configured. Uncheck it. See the how-to's
+[loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too).
