@@ -43,14 +43,36 @@ Before changing anything, know what's actually running today:
 
 ctrld is about to take over the client-facing listener role on your VLAN
 interfaces, so Unbound can no longer also bind those same interfaces on
-port 53. Go to **Services → Unbound DNS → General**, and in the
-network-interfaces binding field, deselect your VLAN interfaces and select
-only **Localhost**. Leave the port at 53 and leave the existing forward-zone
-entries (the `*.in-addr.arpa`/`internal` → `127.0.0.1@53053` delegation to
-Dnsmasq) exactly as they are — that relationship doesn't change.
+port 53. Unbound's interface list (Services → Unbound DNS → General →
+Network Interfaces) only offers your actual assigned interfaces (LAN, WAN,
+VLANs, OpenVPN instances) — there's no built-in "Localhost" entry, and
+leaving the list empty doesn't mean loopback-only, it means bind to
+`0.0.0.0` (every interface), which is the opposite of what you want here.
 
-Apply, and confirm Unbound is now only reachable on `127.0.0.1:53`, not on
-any VLAN gateway IP.
+Instead:
+
+1. **Interfaces → Other Types → Loopback**: create a new loopback device.
+2. **Interfaces → Assignments**: assign that device as a new interface
+   (e.g. name it "UNBOUND_LO").
+3. On that new interface's settings page, give it a static IPv4 address
+   that is **not** in `127.0.0.0/8` — that range is reserved for true
+   loopback semantics and OPNsense won't treat it as a normal routable
+   interface address. Any otherwise-unused private `/32`, e.g.
+   `192.168.254.1/32`, works; it doesn't need to be reachable from
+   anywhere.
+4. Back in **Services → Unbound DNS → General → Network Interfaces**,
+   select *only* this new interface (deselect LAN/WAN/VLANs).
+
+Unbound always implicitly includes `127.0.0.1` alongside whatever real
+interfaces you select (this is hardcoded, not a checkbox), so selecting
+just the new loopback interface here means Unbound ends up listening on
+`127.0.0.1` plus that interface's own address — and nothing else. Leave
+the port at 53 and leave the existing forward-zone entries (the
+`*.in-addr.arpa`/`internal` → `127.0.0.1@53053` delegation to Dnsmasq)
+exactly as they are — that relationship doesn't change.
+
+Apply, and confirm Unbound is now only reachable on `127.0.0.1:53` (and
+the new loopback interface's address), not on any VLAN gateway IP.
 
 ## 3. Install ctrld and set the local-zone resolver
 
