@@ -153,6 +153,13 @@ resolver in the next step:
    similar) upstream from step 2: `ctrld` then only falls back to it if
    NextDNS specifically times out or errors, not on every query — NextDNS
    still handles the normal case.
+4a. **Local-Zone Delegation tab**: click **Create local-zone delegation
+    rules** again (or by hand, for just this listener). It creates rules
+    per *every* enabled listener, so re-running it after adding the
+    loopback listener also delegates the firewall's own
+    `*.in-addr.arpa`/`internal` lookups to Dnsmasq instead of NextDNS,
+    matching what VLAN listeners already get — otherwise the catch-all rule
+    in step 4 would route those to NextDNS too, which can't answer them.
 5. Apply, then verify before changing anything else:
 
 ```sh
