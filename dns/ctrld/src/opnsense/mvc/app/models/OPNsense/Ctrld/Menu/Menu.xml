@@ -2,6 +2,7 @@
     <Services>
         <Ctrld VisibleName="ctrld" cssClass="fa fa-random fa-fw">
             <General order="10" url="/ui/ctrld/general"/>
+            <Log order="20" url="/ui/ctrld/log"/>
         </Ctrld>
     </Services>
 </menu>

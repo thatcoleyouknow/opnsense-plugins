@@ -27,28 +27,18 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-namespace OPNsense\Ctrld\Api;
+namespace OPNsense\Ctrld;
 
-use OPNsense\Base\ApiMutableServiceControllerBase;
+use OPNsense\Base\IndexController;
 
 /**
- * Class ServiceController
- * @package OPNsense\Ctrld\Api
- *
- * All start/stop/restart/status/reconfigure behavior is inherited from
- * ApiMutableServiceControllerBase, which drives configd via the four static
- * properties below -- no raw exec() calls. reconfigureAction() (inherited)
- * regenerates ctrld.toml via `configd template reload OPNsense/Ctrld` and
- * then restarts/starts through actions_ctrld.conf, matching the pattern
- * used by dns/dnscrypt-proxy and dns/ddclient's ServiceController classes.
- *
- * Log reading lives on its own Api\LogController now (see Services > ctrld
- * > Log), not here.
+ * Class LogController
+ * @package OPNsense\Ctrld
  */
-class ServiceController extends ApiMutableServiceControllerBase
+class LogController extends IndexController
 {
-    protected static $internalServiceClass = '\OPNsense\Ctrld\General';
-    protected static $internalServiceTemplate = 'OPNsense/Ctrld';
-    protected static $internalServiceEnabled = 'enabled';
-    protected static $internalServiceName = 'ctrld';
+    public function indexAction()
+    {
+        $this->view->pick('OPNsense/Ctrld/log');
+    }
 }

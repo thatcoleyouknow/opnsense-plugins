@@ -37,15 +37,6 @@
             search:'/api/ctrld/clients/search'
         });
 
-        function refreshCtrldLog() {
-            $("#ctrldLogOutput").text("Loading...");
-            ajaxCall("/api/ctrld/service/log", {}, function(data){
-                $("#ctrldLogOutput").text((data && typeof data.log === 'string' && data.log !== '') ? data.log : '(empty)');
-            });
-        }
-        $("#refreshCtrldLog").click(refreshCtrldLog);
-        refreshCtrldLog();
-
         // NextDNS quick-add: derive type/endpoint from a pasted profile ID.
         // Field ids are rendered as literal id="upstream.nextdnsProfileId"
         // (a dotted id, not data-id) by OPNsense's form partials.
@@ -208,7 +199,6 @@
     <li><a data-toggle="tab" href="#policies">{{ lang._('Policies') }}</a></li>
     <li><a data-toggle="tab" href="#localzone">{{ lang._('Local-Zone Delegation') }}</a></li>
     <li><a data-toggle="tab" href="#clients">{{ lang._('Discovered Clients') }}</a></li>
-    <li><a data-toggle="tab" href="#log">{{ lang._('Log') }}</a></li>
 </ul>
 
 <div class="tab-content content-box">
@@ -317,12 +307,5 @@
             </thead>
             <tbody></tbody>
         </table>
-    </div>
-
-    <div id="log" class="tab-pane fade">
-        <button id="refreshCtrldLog" type="button" class="btn btn-primary" style="margin-bottom: 10px;">
-            <i class="fa fa-refresh"></i> {{ lang._('Refresh') }}
-        </button>
-        <pre id="ctrldLogOutput" style="max-height: 500px; overflow-y: auto;"></pre>
     </div>
 </div>

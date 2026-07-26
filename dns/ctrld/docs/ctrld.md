@@ -149,13 +149,17 @@ host/port, and one `domain`-match Policy row per zone per listener.
 Discovered Clients mirrors `ctrld clients list` output so you don't need
 SSH to see what ctrld has seen.
 
-### Log tab
+## Log
 
-Shows the last 500 lines of ctrld's own service log
-(`/var/log/ctrld.log`, set via `log_path` in the rendered config -- not
-user-configurable) with a manual Refresh button. This is the first place
-to look when something doesn't seem to be working: an empty log after
-enabling the service usually means ctrld never actually started.
+A separate page, **Services → ctrld → Log** (not a tab on the General
+page). Shows ctrld's own service log (`/var/log/ctrld.log`, set via
+`log_path` in the rendered config -- not user-configurable), newest line
+first, as a searchable/sortable grid -- the same search box, row-count
+selector, pagination, and refresh icon every other grid in this plugin
+(and other OPNsense plugins' own Log File pages) already has, rather than
+a static block of text. This is the first place to look when something
+doesn't seem to be working: an empty log after enabling the service
+usually means ctrld never actually started.
 
 ## Known limitations
 
@@ -215,8 +219,8 @@ whatever's manually configured. Uncheck it. See the how-to's
 [loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too).
 
 **The service-status widget (top of the page) goes blank/hidden after
-clicking Apply, and doesn't come back without a page refresh.** Check the
-**Log** tab first -- if it's empty, ctrld likely never started
+clicking Apply, and doesn't come back without a page refresh.** Check
+**Services → ctrld → Log** first -- if it's empty, ctrld likely never started
 (`/usr/local/bin/ctrld` missing, a malformed `ctrld.toml`, or a port
 conflict) and `/api/ctrld/service/status` is getting back something the
 widget-refresh code doesn't know how to render, leaving it stuck in a
@@ -226,7 +230,7 @@ dialog specifically points at the status check itself, not the reconfigure
 step. SSH and check `service ctrld status` / `ps aux | grep ctrld`
 directly to confirm whether it's actually running.
 
-**A newly-added action (e.g. the Log tab) returns "Action not allowed or
+**A newly-added action (e.g. the Log page) returns "Action not allowed or
 missing."** configd (`processhandler.py`'s `ActionHandler.load_config()`)
 reads every `actions.d/actions_*.conf` file exactly once, at its own
 process startup -- not per-request, and not on file change. Syncing a
