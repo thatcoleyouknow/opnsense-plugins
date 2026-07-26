@@ -11,6 +11,8 @@
                 </enabled>
                 <description type="TextField">
                     <Required>N</Required>
+                    <Mask>/^[^'\r\n]*$/</Mask>
+                    <ValidationMessage>Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </description>
                 <interface type="InterfaceField">
                     <Required>Y</Required>

@@ -48,13 +48,19 @@ class Listener extends BaseModel
     {
         $messages = parent::performValidation($validateFullModel);
 
+        // $seen is built from every enabled row regardless of whether it
+        // changed (needed for correct duplicate detection), but a message
+        // is only appended for the row actually being edited -- otherwise
+        // editing row A on a single-row setItem() would fail because some
+        // unrelated, untouched row B happens to already be invalid.
         $seen = [];
         foreach ($this->listeners->listener->iterateItems() as $uuid => $node) {
             if ((string)$node->enabled != '1') {
                 continue;
             }
+            $shouldReport = $validateFullModel || $node->isFieldChanged();
             $key = (string)$node->interface . '/' . (string)$node->port;
-            if (isset($seen[$key])) {
+            if (isset($seen[$key]) && $shouldReport) {
                 $messages->appendMessage(new Message(
                     sprintf(
                         gettext("Listener on interface %s port %s is already used by another listener."),
@@ -65,6 +71,10 @@ class Listener extends BaseModel
                 ));
             }
             $seen[$key] = true;
+
+            if (!$shouldReport) {
+                continue;
+            }
 
             $conflict = $this->findConflictingService((string)$node->interface, (string)$node->port);
             if ($conflict !== null) {
@@ -95,32 +105,45 @@ class Listener extends BaseModel
      */
     private function findConflictingService($interface, $port)
     {
-        if ((string)$port === '53') {
-            if (class_exists('\OPNsense\Unbound\Unbound')) {
-                try {
-                    $unbound = new \OPNsense\Unbound\Unbound();
-                    if ((string)$unbound->general->enabled == '1') {
-                        $active = (string)($unbound->general->active_interface ?? '');
-                        $activeInterfaces = array_filter(array_map('trim', explode(',', $active)));
-                        if (empty($activeInterfaces) || in_array($interface, $activeInterfaces, true)) {
-                            return 'Unbound';
-                        }
+        if (class_exists('\OPNsense\Unbound\Unbound')) {
+            try {
+                $unbound = new \OPNsense\Unbound\Unbound();
+                if ((string)$unbound->general->enabled == '1' && (string)$unbound->general->port === (string)$port) {
+                    if ($this->interfaceListMatches((string)($unbound->general->active_interface ?? ''), $interface)) {
+                        return 'Unbound';
                     }
-                } catch (\Throwable $e) {
-                    // model not available on this install; nothing to compare against
                 }
+            } catch (\Throwable $e) {
+                // model not available on this install; nothing to compare against
             }
-            if (class_exists('\OPNsense\Dnsmasq\Dnsmasq')) {
-                try {
-                    $dnsmasq = new \OPNsense\Dnsmasq\Dnsmasq();
-                    if ((string)$dnsmasq->enable == '1') {
+        }
+        if (class_exists('\OPNsense\Dnsmasq\Dnsmasq')) {
+            try {
+                $dnsmasq = new \OPNsense\Dnsmasq\Dnsmasq();
+                if ((string)$dnsmasq->enable == '1' && (string)$dnsmasq->port === (string)$port) {
+                    if ($this->interfaceListMatches((string)($dnsmasq->interface ?? ''), $interface)) {
                         return 'Dnsmasq';
                     }
-                } catch (\Throwable $e) {
-                    // model not available on this install; nothing to compare against
                 }
+            } catch (\Throwable $e) {
+                // model not available on this install; nothing to compare against
             }
         }
         return null;
+    }
+
+    /**
+     * $csvInterfaces is a comma-separated interface list (as used by both
+     * Unbound's active_interface and Dnsmasq's interface fields) or empty,
+     * which for both of those fields means "all interfaces". Checking both
+     * port AND interface here (not just port) is what lets this plugin's
+     * documented setup -- Dnsmasq staying enabled on its own non-default
+     * port for DHCP -- coexist with ctrld listeners on port 53 without a
+     * false-positive conflict.
+     */
+    private function interfaceListMatches($csvInterfaces, $interface)
+    {
+        $interfaces = array_filter(array_map('trim', explode(',', $csvInterfaces)));
+        return empty($interfaces) || in_array($interface, $interfaces, true);
     }
 }

@@ -38,11 +38,13 @@
         });
 
         // NextDNS quick-add: derive type/endpoint from a pasted profile ID.
-        $(document).on('input', '[data-id="nextdnsProfileId"]', function () {
+        // Field ids are rendered as literal id="upstream.nextdnsProfileId"
+        // (a dotted id, not data-id) by OPNsense's form partials.
+        $(document).on('input', '[id="upstream.nextdnsProfileId"]', function () {
             var profileId = $(this).val().trim();
             if (profileId.length > 0) {
-                $('[data-id="type"]').val('doh3').selectpicker('refresh');
-                $('[data-id="endpoint"]').val('https://dns.nextdns.io/' + profileId);
+                $('[id="upstream.type"]').val('doh3').selectpicker('refresh');
+                $('[id="upstream.endpoint"]').val('https://dns.nextdns.io/' + profileId);
             }
         });
 
@@ -54,35 +56,85 @@
             });
         });
 
-        // Local-zone delegation helper: ensures a "Local resolver" upstream
-        // exists pointing at the configured localZoneResolverHost/Port, then
-        // creates policy rows delegating *.in-addr.arpa and the internal
-        // domain to it. Pre-filled with the working example from the source
-        // network (168.192.in-addr.arpa / internal -> 127.0.0.1@53053).
+        // Listener/Upstream/Policy grid edits save immediately via their
+        // own addItem/setItem/delItem/toggleItem endpoints, but (unlike
+        // the General tab's Save button) never regenerate ctrld.toml or
+        // restart the service on their own -- these Apply buttons do that.
+        $(".btn-apply-ctrld").click(function(){
+            ajaxCall("/api/ctrld/service/reconfigure", {}, function(){
+                updateServiceControlUI('ctrld');
+            });
+        });
+
+        // Local-zone delegation helper: reuses (rather than duplicates) a
+        // "Local resolver" upstream pointing at the configured
+        // localZoneResolverHost/Port, then creates one pair of domain-match
+        // policy rows per existing enabled listener (a Policy row requires
+        // a listener -- this can't create a listener-less rule). The
+        // 168.192.in-addr.arpa zone covers the common 192.168.0.0/16 home
+        // range specifically; add further reverse-zone rows by hand on the
+        // Policies tab for other private ranges (10.0.0.0/8, etc.).
         $("#createLocalZoneDelegation").click(function(){
-            ajaxCall("/api/ctrld/upstream/addItem", {
-                upstream: {
-                    enabled: '1',
-                    name: 'Local resolver (Unbound)',
-                    type: 'legacy',
-                    endpoint: $('[data-id="localZoneResolverHost"]').val() + ':' + $('[data-id="localZoneResolverPort"]').val(),
-                    timeout: '5000'
-                }
-            }, function(response){
-                var upstreamUuid = response.uuid;
-                ['168.192.in-addr.arpa', 'internal'].forEach(function(zone){
-                    ajaxCall("/api/ctrld/policy/addItem", {
-                        policy: {
-                            enabled: '1',
-                            description: 'Local-zone delegation: ' + zone,
-                            matchType: 'domain',
-                            matchValue: zone,
-                            upstream: upstreamUuid
-                        }
-                    }, function(){
-                        $("#grid-policies").bootgrid('reload');
-                        $("#grid-upstreams").bootgrid('reload');
+            var host = $('[id="general.localZoneResolverHost"]').val();
+            var port = $('[id="general.localZoneResolverPort"]').val();
+
+            function createDelegationRules(upstreamUuid) {
+                ajaxCall("/api/ctrld/listener/searchItem", {}, function(listenerResponse){
+                    var listeners = (listenerResponse.rows || []).filter(function(row){
+                        return row.enabled === '1';
                     });
+                    if (listeners.length === 0) {
+                        alert("Add at least one listener first -- local-zone delegation rules are created per listener.");
+                        return;
+                    }
+                    listeners.forEach(function(listener){
+                        ['168.192.in-addr.arpa', 'internal'].forEach(function(zone){
+                            ajaxCall("/api/ctrld/policy/addItem", {
+                                policy: {
+                                    enabled: '1',
+                                    description: 'Local-zone delegation: ' + zone,
+                                    listener: listener.uuid,
+                                    matchType: 'domain',
+                                    matchValue: zone,
+                                    upstream: upstreamUuid
+                                }
+                            }, function(policyResponse){
+                                if (policyResponse.result === 'failed') {
+                                    alert("Failed to create the " + zone + " delegation rule for listener " + listener.description + ".");
+                                    return;
+                                }
+                                $("#grid-policies").bootgrid('reload');
+                            });
+                        });
+                    });
+                    $("#grid-upstreams").bootgrid('reload');
+                });
+            }
+
+            ajaxCall("/api/ctrld/upstream/searchItem", {}, function(searchResponse){
+                var existing = (searchResponse.rows || []).filter(function(row){
+                    return row.name === 'Local resolver (Unbound)';
+                })[0];
+
+                if (existing) {
+                    createDelegationRules(existing.uuid);
+                    return;
+                }
+
+                ajaxCall("/api/ctrld/upstream/addItem", {
+                    upstream: {
+                        enabled: '1',
+                        name: 'Local resolver (Unbound)',
+                        type: 'legacy',
+                        endpoint: host + ':' + port,
+                        timeout: '5000'
+                    }
+                }, function(addResponse){
+                    if (addResponse.result === 'failed' || !addResponse.uuid) {
+                        alert("Failed to create the Local resolver upstream -- check the Local-zone resolver host/port on the General tab.");
+                        return;
+                    }
+                    createDelegationRules(addResponse.uuid);
                 });
             });
         });
@@ -136,6 +188,11 @@
             </tfoot>
         </table>
         {{ partial("layout_partials/base_dialog",['fields':listenerForm,'id':'DialogEditListener','label':lang._('Edit listener')])}}
+        <div class="col-md-12">
+            <button class="btn btn-primary btn-apply-ctrld" type="button">
+                <b>{{ lang._('Apply') }}</b>
+            </button>
+        </div>
     </div>
 
     <div id="upstreams" class="tab-pane fade">
@@ -163,6 +220,11 @@
             </tfoot>
         </table>
         {{ partial("layout_partials/base_dialog",['fields':upstreamForm,'id':'DialogEditUpstream','label':lang._('Edit upstream profile')])}}
+        <div class="col-md-12">
+            <button class="btn btn-primary btn-apply-ctrld" type="button">
+                <b>{{ lang._('Apply') }}</b>
+            </button>
+        </div>
     </div>
 
     <div id="policies" class="tab-pane fade">
@@ -189,11 +251,19 @@
             </tfoot>
         </table>
         {{ partial("layout_partials/base_dialog",['fields':policyForm,'id':'DialogEditPolicy','label':lang._('Edit policy rule')])}}
+        <div class="col-md-12">
+            <button class="btn btn-primary btn-apply-ctrld" type="button">
+                <b>{{ lang._('Apply') }}</b>
+            </button>
+        </div>
     </div>
 
     <div id="localzone" class="tab-pane fade">
         <p>
-            {{ lang._('*.in-addr.arpa reverse zones and the internal domain should stay delegated to Unbound (or another local resolver), not routed to NextDNS. This creates one policy rule per zone, pointed at a "Local resolver" upstream profile using the host/port configured on the General tab.') }}
+            {{ lang._('*.in-addr.arpa reverse zones and the internal domain should stay delegated to Unbound (or another local resolver), not routed to NextDNS. This creates one policy rule per zone for every enabled listener, pointed at a "Local resolver" upstream profile using the host/port configured on the General tab (normally 127.0.0.1:53, i.e. Unbound rebound to loopback-only -- see the hybrid DNS how-to).') }}
+        </p>
+        <p>
+            {{ lang._('Covers the common 192.168.0.0/16 home range (168.192.in-addr.arpa) plus internal. Add further reverse-zone rows by hand on the Policies tab for other private ranges. For reference, this is Unbound\'s own unchanged config for reaching Dnsmasq one hop further down the chain -- not something this plugin manages:') }}
         </p>
         <pre>forward-zone:
   name: "168.192.in-addr.arpa"

@@ -43,18 +43,34 @@ class Policy extends BaseModel
     {
         $messages = parent::performValidation($validateFullModel);
 
+        // A domain label is 1-63 chars of alnum/hyphen (not starting/ending
+        // with a hyphen), optionally preceded by a "*." wildcard (e.g.
+        // *.in-addr.arpa, shown as a valid example in the GUI's own help
+        // text), with a length cap matching RFC 1035's 253-char limit.
+        $domainPattern = '/^(\*\.)?' .
+            '([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.){0,10}' .
+            '[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/';
+
         foreach ($this->policies->policy->iterateItems() as $uuid => $node) {
+            if (!$validateFullModel && !$node->isFieldChanged()) {
+                continue;
+            }
             $matchType = (string)$node->matchType;
             $matchValue = (string)$node->matchValue;
 
-            if ($matchType === 'cidr' && !Util::isSubnet($matchValue)) {
+            if (strlen($matchValue) > 253) {
+                $messages->appendMessage(new Message(
+                    gettext("Match value is too long (253 characters max)."),
+                    "policies.policy.{$uuid}.matchValue"
+                ));
+            } elseif ($matchType === 'cidr' && !Util::isSubnet($matchValue)) {
                 $messages->appendMessage(new Message(
                     gettext("Enter a valid CIDR, e.g. 192.168.3.0/24."),
                     "policies.policy.{$uuid}.matchValue"
                 ));
-            } elseif ($matchType === 'domain' && !preg_match('/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)*[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/', $matchValue)) {
+            } elseif ($matchType === 'domain' && !preg_match($domainPattern, $matchValue)) {
                 $messages->appendMessage(new Message(
-                    gettext("Enter a valid domain name, e.g. internal or 168.192.in-addr.arpa."),
+                    gettext("Enter a valid domain name, e.g. internal or *.in-addr.arpa."),
                     "policies.policy.{$uuid}.matchValue"
                 ));
             } elseif ($matchType === 'mac' && !preg_match('/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/', $matchValue)) {

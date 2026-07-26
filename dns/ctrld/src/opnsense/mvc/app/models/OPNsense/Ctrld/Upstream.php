@@ -43,6 +43,9 @@ class Upstream extends BaseModel
         $messages = parent::performValidation($validateFullModel);
 
         foreach ($this->upstreams->upstream->iterateItems() as $uuid => $node) {
+            if (!$validateFullModel && !$node->isFieldChanged()) {
+                continue;
+            }
             $type = (string)$node->type;
             $endpoint = (string)$node->endpoint;
 

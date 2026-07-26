@@ -11,7 +11,8 @@
                 </enabled>
                 <name type="TextField">
                     <Required>Y</Required>
-                    <ValidationMessage>Enter a unique, descriptive name for this upstream profile.</ValidationMessage>
+                    <Mask>/^[^'\r\n]*$/</Mask>
+                    <ValidationMessage>Enter a unique, descriptive name for this upstream profile. Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </name>
                 <type type="OptionField">
                     <Default>doh3</Default>
@@ -25,7 +26,8 @@
                 </type>
                 <endpoint type="TextField">
                     <Required>Y</Required>
-                    <ValidationMessage>Enter the upstream endpoint (URL for doh/doh3, host[:port] for dot/legacy).</ValidationMessage>
+                    <Mask>/^[^'\r\n]*$/</Mask>
+                    <ValidationMessage>Enter the upstream endpoint (URL for doh/doh3, host[:port] for dot/legacy). Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </endpoint>
                 <timeout type="IntegerField">
                     <Default>5000</Default>

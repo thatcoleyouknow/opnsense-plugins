@@ -43,6 +43,13 @@ use OPNsense\Core\Backend;
  * list` run at deployment time; this parser assumes a whitespace-aligned
  * header row of IP / Hostname / MAC / Source, which is ctrld's documented
  * column order.
+ *
+ * Every value in that table ultimately originates from unauthenticated
+ * network input (DHCP hostname options, mDNS, etc. -- anything on any
+ * client-facing VLAN can set its own hostname), so nothing from it is
+ * trusted here: IP/MAC are format-validated and dropped if malformed,
+ * everything is length-capped and HTML-escaped before it ever reaches the
+ * grid or the dashboard widget.
  */
 class ClientsController extends ApiControllerBase
 {
@@ -50,6 +57,7 @@ class ClientsController extends ApiControllerBase
     {
         $backend = new Backend();
         $output = trim((string)$backend->configdRun('ctrld clients'));
+        $searchPhrase = strtolower((string)$this->request->get('searchPhrase', null, ''));
 
         $rows = [];
         $lines = $output === '' ? [] : preg_split('/\r?\n/', $output);
@@ -61,21 +69,35 @@ class ClientsController extends ApiControllerBase
             }
             $fields = preg_split('/\s{2,}/', trim($line));
             if ($header === null) {
-                $header = array_map(function ($col) {
+                $candidate = array_map(function ($col) {
                     return strtolower(trim($col));
                 }, $fields);
+                if (!in_array('ip', $candidate, true)) {
+                    // Doesn't look like ctrld's real header row -- most
+                    // likely configd returned an error message instead of
+                    // client data. Stop rather than parsing garbage as rows.
+                    break;
+                }
+                $header = $candidate;
                 continue;
             }
             $row = array_combine(
                 array_slice($header, 0, count($fields)),
                 array_slice($fields, 0, count($header))
             );
-            $rows[] = [
-                'ip' => $row['ip'] ?? '',
-                'hostname' => $row['hostname'] ?? '',
-                'mac' => $row['mac'] ?? '',
-                'source' => $row['source'] ?? ($row['discovery source'] ?? ''),
+            $entry = [
+                'ip' => $this->sanitizeIp($row['ip'] ?? ''),
+                'hostname' => $this->sanitizeText($row['hostname'] ?? ''),
+                'mac' => $this->sanitizeMac($row['mac'] ?? ''),
+                'source' => $this->sanitizeText($row['source'] ?? ($row['discovery source'] ?? '')),
             ];
+            if (
+                $searchPhrase !== '' &&
+                strpos(strtolower(implode(' ', $entry)), $searchPhrase) === false
+            ) {
+                continue;
+            }
+            $rows[] = $entry;
         }
 
         return [
@@ -84,5 +106,42 @@ class ClientsController extends ApiControllerBase
             'total' => count($rows),
             'current' => 1,
         ];
+    }
+
+    /**
+     * HTML-escape and length-cap free-text ctrld output (hostname,
+     * discovery source) before it reaches a grid or widget.
+     */
+    private function sanitizeText($value, $maxLength = 253)
+    {
+        $value = substr((string)$value, 0, $maxLength);
+        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    /**
+     * Only pass through a value that's actually an IP address (or ctrld's
+     * "*"/unknown sentinel) -- anything else is dropped rather than
+     * escaped-and-shown, since a malformed "IP" is not useful information.
+     */
+    private function sanitizeIp($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '*' || filter_var($value, FILTER_VALIDATE_IP) !== false) {
+            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        }
+        return '';
+    }
+
+    /**
+     * Only pass through a value that's actually a MAC address (or ctrld's
+     * "*"/unknown sentinel, confirmed to appear in real lease data).
+     */
+    private function sanitizeMac($value)
+    {
+        $value = trim((string)$value);
+        if ($value === '*' || preg_match('/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/', $value)) {
+            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        }
+        return '';
     }
 }

@@ -40,6 +40,13 @@ class ListenerController extends ApiMutableModelControllerBase
     protected static $internalModelClass = '\OPNsense\Ctrld\Listener';
     protected static $internalModelName = 'listener';
 
+    /**
+     * Refuse to delete a listener still referenced by a policy rule's
+     * ModelRelationField, instead of silently orphaning the rule (same
+     * reasoning as UpstreamController's use of this).
+     */
+    protected static $internalModelUseSafeDelete = true;
+
     public function searchItemAction()
     {
         return $this->searchBase('listeners.listener');

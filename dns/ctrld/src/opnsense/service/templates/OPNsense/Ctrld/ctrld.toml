@@ -1,66 +1,68 @@
 {#
     Rendered by `configd template reload OPNsense/Ctrld` into
-    /etc/controld/ctrld.toml, then loaded via `ctrld service start` /
-    `ctrld reload` (custom config mode) -- never via `ctrld start --cd`,
-    which would auto-generate its own config and kill Unbound/Dnsmasq.
+    /etc/controld/ctrld.toml, then loaded via `ctrld start` (local config
+    mode) / `ctrld reload` -- never via `ctrld start --cd`, which would
+    auto-generate its own config and kill Unbound/Dnsmasq.
 
-    NOTE (verify before deploying): the [listener.N.policy] networks/rules
-    array shape below matches ctrld's documented [network] / policy model
-    as described in the plugin design doc, but the exact key syntax for
-    domain- and MAC-based rules should be re-checked against a live
-    docs/config.md before relying on it -- this template was written
-    without a running ctrld instance to test against.
+    helpers.toList()/getNodeByTag() and the '@uuid' attribute-access
+    pattern below are confirmed against opnsense/core's actual
+    service/modules/config.py (XML->dict conversion, attributes land as
+    '@attr' keys) and template_helpers.py (Helpers.toList/getNodeByTag) --
+    not guessed. What's still unverified without a live ctrld instance:
+    the exact [listener.N.policy] "networks"/"rules" TOML array shape
+    ctrld itself expects -- cross-check against ctrld's docs/config.md
+    before relying on this in production.
 #}
-{% if OPNsense.ctrld.listeners.listener is defined %}
+[service]
+    log_level = '{{ OPNsense.ctrld.general.logLevel }}'
+
+{% if helpers.toList('OPNsense.ctrld.listeners.listener') %}
 [network]
 {% set ns = namespace(net_idx = 0, net_uuid_map = {}) %}
-{% for policy in OPNsense.ctrld.policies.policy %}
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
 {% if policy.enabled == '1' and policy.matchType == 'cidr' %}
   [network.{{ ns.net_idx }}]
     name = '{{ policy.description if policy.description else policy.matchValue }}'
     cidrs = ['{{ policy.matchValue }}']
-{% set ns.net_uuid_map = ns.net_uuid_map.update({policy.__uuid: ns.net_idx}) or ns.net_uuid_map %}
+{% set ns.net_uuid_map = ns.net_uuid_map.update({policy['@uuid']: ns.net_idx}) or ns.net_uuid_map %}
 {% set ns.net_idx = ns.net_idx + 1 %}
 {% endif %}
 {% endfor %}
 
 [upstream]
 {% set ns2 = namespace(up_idx = 0, up_uuid_map = {}) %}
-{% for upstream in OPNsense.ctrld.upstreams.upstream %}
+{% for upstream in helpers.toList('OPNsense.ctrld.upstreams.upstream') %}
 {% if upstream.enabled == '1' %}
   [upstream.{{ ns2.up_idx }}]
     name = '{{ upstream.name }}'
     type = '{{ upstream.type }}'
     endpoint = '{{ upstream.endpoint }}'
     timeout = {{ upstream.timeout }}
-{% set ns2.up_uuid_map = ns2.up_uuid_map.update({upstream.__uuid: ns2.up_idx}) or ns2.up_uuid_map %}
+{% set ns2.up_uuid_map = ns2.up_uuid_map.update({upstream['@uuid']: ns2.up_idx}) or ns2.up_uuid_map %}
 {% set ns2.up_idx = ns2.up_idx + 1 %}
 {% endif %}
 {% endfor %}
 
 [listener]
 {% set ns3 = namespace(l_idx = 0) %}
-{% for listener in OPNsense.ctrld.listeners.listener %}
+{% for listener in helpers.toList('OPNsense.ctrld.listeners.listener') %}
 {% if listener.enabled == '1' %}
+{% set listener_ip = helpers.getNodeByTag('interfaces.' ~ listener.interface ~ '.ipaddr') %}
   [listener.{{ ns3.l_idx }}]
-    {# listener.interface stores an interface identifier (e.g. "opt1"), not
-       an IP -- resolving it to the interface's live IPv4 address here via
-       `legacy.interfaces` is the expected mechanism but this accessor name
-       is unverified against a real OPNsense template-helpers reference. #}
-    ip = '{{ legacy.interfaces[listener.interface].ipaddr }}'
+    ip = '{{ listener_ip }}'
     port = {{ listener.port }}
     [listener.{{ ns3.l_idx }}.policy]
       name = '{{ listener.description if listener.description else 'listener-' ~ ns3.l_idx }}'
       networks = [
-{% for policy in OPNsense.ctrld.policies.policy %}
-{% if policy.enabled == '1' and policy.matchType == 'cidr' and policy.listener == listener.__uuid %}
-        { 'network.{{ ns.net_uuid_map[policy.__uuid] }}' = ['upstream.{{ ns2.up_uuid_map[policy.upstream] }}'] },
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
+{% if policy.enabled == '1' and policy.matchType == 'cidr' and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
+        { 'network.{{ ns.net_uuid_map[policy['@uuid']] }}' = ['upstream.{{ ns2.up_uuid_map[policy.upstream] }}'] },
 {% endif %}
 {% endfor %}
       ]
       rules = [
-{% for policy in OPNsense.ctrld.policies.policy %}
-{% if policy.enabled == '1' and policy.matchType in ['domain', 'mac'] and policy.listener == listener.__uuid %}
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policy') %}
+{% if policy.enabled == '1' and policy.matchType in ['domain', 'mac'] and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
         { '{{ policy.matchValue }}' = ['upstream.{{ ns2.up_uuid_map[policy.upstream] }}'] },
 {% endif %}
 {% endfor %}

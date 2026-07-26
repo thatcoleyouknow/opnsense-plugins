@@ -16,14 +16,28 @@
 
 set -e
 
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Must run as root (writes into /usr/local/opnsense and /usr/local/etc)." >&2
+    exit 1
+fi
+
+if ! command -v rsync >/dev/null 2>&1; then
+    echo "==> rsync not found, installing (pkg install -y rsync)"
+    pkg install -y rsync
+fi
+
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 PLUGIN_SRC="${SCRIPT_DIR}/.."
 
+# --delete so files removed from the repo (fields/handlers that have been
+# deleted across sessions) actually stop being loaded, instead of lingering
+# alongside newer code.
 echo "==> Syncing MVC/service/widget files into /usr/local/opnsense"
-rsync -a "${PLUGIN_SRC}/src/opnsense/" /usr/local/opnsense/
+rsync -a --delete "${PLUGIN_SRC}/src/opnsense/" /usr/local/opnsense/
 
-echo "==> Syncing plugins.inc.d hook into /usr/local/etc"
+echo "==> Syncing plugins.inc.d hook and rc.d script into /usr/local/etc"
 rsync -a "${PLUGIN_SRC}/src/etc/" /usr/local/etc/
+chmod +x /usr/local/etc/rc.d/ctrld
 
 # The ACL and Menu systems each cache their merged XML to disk with a 1hr
 # TTL (see OPNsense\Base\Menu\MenuSystem::persist(), core's system.inc
@@ -36,5 +50,11 @@ echo "==> Flushing ACL/menu caches (rc.configure_plugins)"
 
 echo "==> Reloading web GUI"
 configctl webgui restart
+
+# Syncing a changed ctrld.toml *template* above doesn't regenerate the
+# rendered /etc/controld/ctrld.toml *output* -- that only happens when this
+# actually runs, same as clicking Apply/Save in the GUI.
+echo "==> Re-rendering ctrld.toml from the (possibly updated) template"
+configctl template reload OPNsense/Ctrld
 
 echo "==> Done. Services > ctrld should now reflect what's in this checkout."

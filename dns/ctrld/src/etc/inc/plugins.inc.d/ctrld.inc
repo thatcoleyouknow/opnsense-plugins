@@ -54,8 +54,23 @@ function ctrld_services()
     return $services;
 }
 
+/**
+ * Registers ctrld_configure_do() with OPNsense's plugin hook system so it
+ * actually runs on bootup/config-reload, not just when the General tab's
+ * Save button is clicked. 'dns' matches the hook group dns/dnscrypt-proxy
+ * registers under for the same purpose.
+ */
+function ctrld_configure()
+{
+    return [
+        'dns' => ['ctrld_configure_do'],
+    ];
+}
+
 function ctrld_configure_do($verbose = false)
 {
+    service_log('Configuring ctrld...', $verbose);
+
     $backend = new \OPNsense\Core\Backend();
     $backend->configdRun('template reload OPNsense/Ctrld');
 
@@ -64,4 +79,6 @@ function ctrld_configure_do($verbose = false)
     } else {
         $backend->configdRun('ctrld stop');
     }
+
+    service_log('done.' . "\n", $verbose);
 }

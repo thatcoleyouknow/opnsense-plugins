@@ -23,6 +23,11 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Values rendered here (hostname, mac, ip, source) come from
+ * Api/ClientsController::searchAction(), which already HTML-escapes and
+ * format-validates everything server-side -- this widget does not need to
+ * (and must not rely on client-side escaping instead of that).
  */
 
 export default class CtrldClients extends BaseTableWidget {
@@ -44,8 +49,8 @@ export default class CtrldClients extends BaseTableWidget {
         let generalResponse = await this.ajaxCall('/api/ctrld/general/get');
         if (generalResponse?.general?.enabled !== '1') {
             this.displayError(
-                'ctrld ' + i18n.t('widget.dashboard.service_not_running') +
-                ' <a href="/ui/ctrld/general">' + i18n.t('widget.dashboard.click_here_to_configure') + '</a>.'
+                'ctrld ' + this.translations.service_not_running +
+                ' <a href="/ui/ctrld/general">' + this.translations.click_here_to_configure + '</a>.'
             );
             return;
         }
@@ -56,34 +61,16 @@ export default class CtrldClients extends BaseTableWidget {
         }
         this.previousResponseJSON = clientsResponse;
 
+        // headerPosition: 'left' rows are [leftCell, rightCellOrArray] pairs
+        // (see BaseTableWidget.populateRow()) -- not the bootgrid-style
+        // {columnId, formatters} shape used elsewhere in this plugin.
         let rows = (clientsResponse?.rows || []).map((client) => {
-            return [
-                {
-                    columnId: 'host',
-                    formatters: [
-                        {
-                            type: 'text_with_tooltip',
-                            text: client.hostname && client.hostname !== '*' ? client.hostname : i18n.t('widget.dashboard.not_available'),
-                            tooltip: client.mac && client.mac !== '*' ? client.mac : i18n.t('widget.dashboard.not_available'),
-                            icon: 'fa-laptop'
-                        }
-                    ]
-                },
-                {
-                    columnId: 'ip',
-                    formatters: [
-                        {
-                            type: 'link',
-                            text: client.ip,
-                            href: '/ui/ctrld/general#clients'
-                        }
-                    ]
-                },
-                {
-                    columnId: 'source',
-                    formatters: [{ type: 'text', text: client.source || '' }]
-                }
-            ];
+            let hostname = client.hostname && client.hostname !== '*' ? client.hostname : this.translations.not_available;
+            let mac = client.mac && client.mac !== '*' ? client.mac : this.translations.not_available;
+            let identity = `<i class="fa fa-laptop"></i> <b data-toggle="tooltip" title="${mac}">${hostname}</b>`;
+            let ipLink = `<a href="/ui/ctrld/general#clients">${client.ip}</a>`;
+            let source = client.source || this.translations.not_available;
+            return [identity, [ipLink, source]];
         });
 
         this.updateTable('ctrldClientsTable', rows);

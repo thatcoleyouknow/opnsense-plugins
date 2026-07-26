@@ -31,7 +31,7 @@ namespace OPNsense\Ctrld;
 
 use OPNsense\Base\BaseModel;
 use OPNsense\Base\Messages\Message;
-use Phalcon\Messages\Message as PhalconMessage;
+use OPNsense\Firewall\Util;
 
 /**
  * Class General
@@ -41,16 +41,23 @@ class General extends BaseModel
 {
     /**
      * Cross-check the local-zone resolver host/port against Unbound's live
-     * forward-zone port, when the Unbound model is reachable, so an admin
-     * isn't left pointing at a stale port after Unbound's own config
-     * changes. This does not hardcode the port -- it only warns when the
-     * two disagree.
+     * forward-zone port -- but only when the host is actually 127.0.0.1 or
+     * localhost, i.e. only when it's plausible this field is meant to point
+     * at Unbound at all. An admin who deliberately points local-zone
+     * delegation at something else (a different resolver entirely) isn't
+     * assumed to be misconfigured and isn't blocked from saving.
      */
     public function performValidation($validateFullModel = false)
     {
         $messages = parent::performValidation($validateFullModel);
 
-        if ((string)$this->enabled == '1') {
+        $host = (string)$this->localZoneResolverHost;
+        if (!Util::isIpAddress($host) && $host !== 'localhost') {
+            $messages->appendMessage(new Message(
+                gettext("Enter a valid IP address of the local resolver used for zone delegation."),
+                "localZoneResolverHost"
+            ));
+        } elseif ((string)$this->enabled == '1' && in_array($host, ['127.0.0.1', '::1', 'localhost'], true)) {
             $unboundPort = $this->getUnboundLoopbackPort();
             if ($unboundPort !== null && (string)$unboundPort !== (string)$this->localZoneResolverPort) {
                 $messages->appendMessage(new Message(

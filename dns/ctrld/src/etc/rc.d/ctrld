@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# PROVIDE: ctrld
+# REQUIRE: unbound dnsmasq securelevel
+# KEYWORD: shutdown
+#
+# Add the following to /etc/rc.conf.d/ctrld (written automatically by this
+# plugin's configd template when the service is enabled) to start at boot:
+#
+# ctrld_enable="YES"
+#
+# ctrld has no FreeBSD-native rc.d integration of its own -- it ships as a
+# bare binary (see dns/ctrld/docs/ctrld.md) -- so this wraps `ctrld run` in
+# daemon(8) rather than depending on ctrld's own start/stop/service
+# subcommands, whose exact FreeBSD behavior isn't confirmed. Log output is
+# intentionally sent to /dev/null rather than patched onto a daemon(8)
+# flag: check ctrld's own docs/config.md for a native log_path config key
+# before adding log capture here, since a daemon(8)-flag hack would
+# silently revert on any future rc.d regeneration.
+
+. /etc/rc.subr
+
+name="ctrld"
+rcvar="ctrld_enable"
+
+load_rc_config $name
+
+: ${ctrld_enable:="NO"}
+: ${ctrld_config:="/etc/controld/ctrld.toml"}
+: ${ctrld_bin:="/usr/local/bin/ctrld"}
+: ${ctrld_pidfile:="/var/run/ctrld.pid"}
+
+pidfile="${ctrld_pidfile}"
+procname="${ctrld_bin}"
+command="/usr/sbin/daemon"
+command_args="-c -f -r -p ${ctrld_pidfile} -T ctrld ${ctrld_bin} run --config ${ctrld_config}"
+
+run_rc_command "$1"
