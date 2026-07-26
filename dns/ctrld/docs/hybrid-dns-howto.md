@@ -54,7 +54,7 @@ Don't enable the service yet.
 
 ## 3. Create a NextDNS upstream profile
 
-Under the **Upstreams** tab, add one row per VLAN's NextDNS profile:
+Under the **Upstreams** page, add one row per VLAN's NextDNS profile:
 
 | Name | NextDNS profile ID (quick-add) | Type | Endpoint |
 |---|---|---|---|
@@ -66,7 +66,7 @@ endpoint for you.
 
 ## 4. Add a listener per VLAN
 
-Under the **Listeners** tab, add one row per VLAN gateway:
+Under the **Listeners** page, add one row per VLAN gateway:
 
 | Description | Interface | Port |
 |---|---|---|
@@ -84,7 +84,7 @@ IPv6.
 
 ## 5. Add policy rules
 
-Under the **Policies** tab, add one CIDR rule per VLAN, routing that VLAN's
+Under the **Policies** page, add one CIDR rule per VLAN, routing that VLAN's
 traffic to its NextDNS profile:
 
 | Listener | Match type | Match value | Upstream |
@@ -92,7 +92,7 @@ traffic to its NextDNS profile:
 | IoT | cidr | `192.168.3.0/24` | NextDNS IoT |
 | LAN | cidr | *(your LAN CIDR)* | NextDNS LAN |
 
-Then handle local-zone delegation: go to the **Local-Zone Delegation** tab
+Then handle local-zone delegation: go to the **Local-Zone Delegation** page
 and click **Create local-zone delegation rules**. This creates an Upstream
 row for Dnsmasq (using the host/port from step 2) plus two Policy rows —
 one for `168.192.in-addr.arpa`, one for `internal` — routing those to it
@@ -109,7 +109,7 @@ Policy rows pointed at it.)
 
 ## 6. Enable and verify
 
-Back on the **General** tab, enable ctrld and save. Then, from a machine on
+Back on the **General** page, enable ctrld and save. Then, from a machine on
 each VLAN (or via `dig @<vlan-gateway-ip>`):
 
 ```sh
@@ -139,27 +139,27 @@ on your network, including the firewall itself, bypassing NextDNS, route
 this through ctrld too instead of pointing it at an unrelated external
 resolver in the next step:
 
-1. **General tab**: leave **Enable caching** and **Serve stale on failure**
+1. **General page**: leave **Enable caching** and **Serve stale on failure**
    turned on (the default). `ctrld` then keeps answering already-resolved
    names from its own cache during a brief NextDNS/WAN hiccup, instead of
    failing outright — this alone covers most short blips.
-2. **Upstreams tab**: reuse an existing NextDNS profile, or add a new one
+2. **Upstreams page**: reuse an existing NextDNS profile, or add a new one
    dedicated to the firewall itself (recommended — gives it its own
    distinguishable device row in the NextDNS dashboard). Also add a second,
    non-NextDNS upstream to use as a fallback — e.g. Quad9 (`type: dot`,
    endpoint `9.9.9.9`) — for step 4 below.
-3. **Listeners tab**: add a row with **Interface: Loopback (127.0.0.1)**,
+3. **Listeners page**: add a row with **Interface: Loopback (127.0.0.1)**,
    **Port: 53**. This is a special option this plugin adds specifically for
    this case — it isn't a real assigned interface, so it doesn't show up
    anywhere else in OPNsense.
-4. **Policies tab**: add a `cidr` rule matching `127.0.0.1/32` on that
+4. **Policies page**: add a `cidr` rule matching `127.0.0.1/32` on that
    listener, routed to the NextDNS upstream from step 2 — this is the only
    source address that will ever reach a loopback listener, so it acts as a
    catch-all for it. Optionally set **Fallback upstream** to the Quad9 (or
    similar) upstream from step 2: `ctrld` then only falls back to it if
    NextDNS specifically times out or errors, not on every query — NextDNS
    still handles the normal case.
-4a. **Local-Zone Delegation tab**: click **Create local-zone delegation
+4a. **Local-Zone Delegation page**: click **Create local-zone delegation
     rules** again (or by hand, for just this listener). It creates rules
     per *every* enabled listener, so re-running it after adding the
     loopback listener also delegates the firewall's own

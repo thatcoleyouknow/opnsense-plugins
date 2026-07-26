@@ -32,14 +32,16 @@ namespace OPNsense\Ctrld;
 use OPNsense\Base\IndexController;
 
 /**
- * Class GeneralController
+ * Class ClientsController
  * @package OPNsense\Ctrld
+ *
+ * The page/blade controller -- distinct from Api\ClientsController, which
+ * is the searchAction() endpoint this page's grid actually calls.
  */
-class GeneralController extends IndexController
+class ClientsController extends IndexController
 {
     public function indexAction()
     {
-        $this->view->generalForm = $this->getForm("general");
-        $this->view->pick('OPNsense/Ctrld/general');
+        $this->view->pick('OPNsense/Ctrld/clients');
     }
 }

@@ -68,7 +68,7 @@ export default class CtrldClients extends BaseTableWidget {
             let hostname = client.hostname && client.hostname !== '*' ? client.hostname : this.translations.not_available;
             let mac = client.mac && client.mac !== '*' ? client.mac : this.translations.not_available;
             let identity = `<i class="fa fa-laptop"></i> <b data-toggle="tooltip" title="${mac}">${hostname}</b>`;
-            let ipLink = `<a href="/ui/ctrld/general#clients">${client.ip}</a>`;
+            let ipLink = `<a href="/ui/ctrld/clients">${client.ip}</a>`;
             let source = client.source || this.translations.not_available;
             return [identity, [ipLink, source]];
         });

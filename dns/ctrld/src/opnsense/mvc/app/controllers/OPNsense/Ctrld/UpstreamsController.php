@@ -32,14 +32,14 @@ namespace OPNsense\Ctrld;
 use OPNsense\Base\IndexController;
 
 /**
- * Class GeneralController
+ * Class UpstreamsController
  * @package OPNsense\Ctrld
  */
-class GeneralController extends IndexController
+class UpstreamsController extends IndexController
 {
     public function indexAction()
     {
-        $this->view->generalForm = $this->getForm("general");
-        $this->view->pick('OPNsense/Ctrld/general');
+        $this->view->upstreamForm = $this->getForm("dialogEditCtrldUpstream");
+        $this->view->pick('OPNsense/Ctrld/upstreams');
     }
 }

@@ -67,11 +67,11 @@ binary, it does not install one (see **Known limitations** below).
 
 ## Settings
 
-### General tab
+### General page
 
 | Field | Description |
 |---|---|
-| Enable ctrld | Starts ctrld as the client-facing DNS listener on the interfaces configured under the Listeners tab. Dnsmasq keeps running unchanged. |
+| Enable ctrld | Starts ctrld as the client-facing DNS listener on the interfaces configured under the Listeners page. Dnsmasq keeps running unchanged. |
 | Log level | Verbosity of ctrld's own service log. |
 | Local-zone resolver host/port | Where `*.in-addr.arpa` and `internal` queries are delegated to — normally Dnsmasq's own loopback DNS listener. See the [hybrid DNS how-to](hybrid-dns-howto.md). |
 | Enable caching | Caches resolved responses in ctrld itself for each record's own TTL. On by default. |
@@ -79,7 +79,7 @@ binary, it does not install one (see **Known limitations** below).
 | Cache TTL override | 0 respects each record's real TTL; a positive value (seconds) overrides it. |
 | Serve stale on failure | Keeps answering already-cached names from a stale cache during an upstream outage, instead of failing outright. On by default; requires caching to be enabled. |
 
-### Listeners tab
+### Listeners page
 
 One row per client-facing bind point. Each listener is bound to a specific
 interface (never "all interfaces"/`0.0.0.0`), IP version, and port. A
@@ -99,7 +99,7 @@ different IP version).
 | IP version | IPv4 or IPv6 -- which of the interface's addresses (or which loopback address) to bind. |
 | Port | Usually 53. Checked against Unbound's/Dnsmasq's own bound ports on save, as a defensive check in case either is still running on that interface. |
 
-### Upstreams tab
+### Upstreams page
 
 One row per upstream resolver profile — typically one NextDNS profile per
 VLAN, plus one entry representing Dnsmasq for local-zone delegation.
@@ -113,7 +113,7 @@ VLAN, plus one entry representing Dnsmasq for local-zone delegation.
 | Endpoint | URL for `doh`/`doh3`, `host[:port]` for `dot`/`legacy`. |
 | Timeout | Upstream response timeout, in milliseconds. |
 
-### Policies tab
+### Policies page
 
 Maps a listener + match (CIDR / domain / MAC) to an upstream profile. The
 primary use case is one row per VLAN, routing that VLAN's CIDR to a
@@ -129,11 +129,11 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 | Upstream profile | Where matching queries are routed. |
 | Fallback upstream | Optional. Tried only if the primary upstream above times out or returns SERVFAIL -- not on every query. Leave blank for no fallback. |
 
-### Local-Zone Delegation and Discovered Clients tabs
+### Local-Zone Delegation and Discovered Clients pages
 
-The Local-Zone Delegation tab is a guided shortcut: clicking **Create
+The Local-Zone Delegation page is a guided shortcut: clicking **Create
 local-zone delegation rules** creates an Upstream row for Dnsmasq (using
-the General tab's host/port) plus one pair of Policy rows *per enabled
+the General page's host/port) plus one pair of Policy rows *per enabled
 listener* — one delegating `168.192.in-addr.arpa`, one delegating
 `internal`, both to that Upstream. It reuses an existing "Local resolver"
 Upstream row if one is already there, rather than creating a duplicate, so
@@ -141,9 +141,9 @@ it's safe to click again after adding a new listener (see the
 [hybrid DNS how-to's optional loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too)
 for a case where that matters). `168.192.in-addr.arpa` covers the common
 `192.168.0.0/16` home range specifically; add further reverse-zone Policy
-rows by hand on the Policies tab for other private ranges (`10.0.0.0/8`,
+rows by hand on the Policies page for other private ranges (`10.0.0.0/8`,
 etc.). Equivalent by hand: an Upstream row named "Local resolver", type
-`legacy`, endpoint matching the General tab's local-zone resolver
+`legacy`, endpoint matching the General page's local-zone resolver
 host/port, and one `domain`-match Policy row per zone per listener.
 
 Discovered Clients mirrors `ctrld clients list` output so you don't need
@@ -151,8 +151,7 @@ SSH to see what ctrld has seen.
 
 ## Log
 
-A separate page, **Services → ctrld → Log** (not a tab on the General
-page). Shows ctrld's own service log (`/var/log/ctrld.log`, set via
+**Services → ctrld → Log File**. Shows ctrld's own service log (`/var/log/ctrld.log`, set via
 `log_path` in the rendered config -- not user-configurable), newest line
 first, as a searchable/sortable grid -- the same search box, row-count
 selector, pagination, and refresh icon every other grid in this plugin
@@ -173,7 +172,7 @@ usually means ctrld never actually started.
   `|`-delimited cells), with columns named IP/Hostname/Mac/Discovered
   (verified against a live instance's real output -- an earlier version of
   this parser assumed a plain whitespace-aligned table with a "Source"
-  column instead, which matched nothing and left the tab empty). If a
+  column instead, which matched nothing and left the page empty). If a
   future `ctrld` version changes this table format again, the parser will
   need updating the same way -- run `ctrld clients list` directly (SSH) to
   compare its real output against the parser's assumptions.

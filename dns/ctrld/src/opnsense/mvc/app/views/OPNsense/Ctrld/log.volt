@@ -3,6 +3,8 @@
         $("#grid-log").UIBootgrid({
             search:'/api/ctrld/log/search'
         });
+
+        updateServiceControlUI('ctrld');
     });
 </script>
 

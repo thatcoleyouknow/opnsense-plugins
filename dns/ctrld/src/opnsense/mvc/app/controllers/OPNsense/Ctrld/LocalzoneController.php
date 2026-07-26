@@ -32,14 +32,13 @@ namespace OPNsense\Ctrld;
 use OPNsense\Base\IndexController;
 
 /**
- * Class GeneralController
+ * Class LocalzoneController
  * @package OPNsense\Ctrld
  */
-class GeneralController extends IndexController
+class LocalzoneController extends IndexController
 {
     public function indexAction()
     {
-        $this->view->generalForm = $this->getForm("general");
-        $this->view->pick('OPNsense/Ctrld/general');
+        $this->view->pick('OPNsense/Ctrld/localzone');
     }
 }
