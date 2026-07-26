@@ -54,12 +54,6 @@
             });
         });
 
-        $("#dismissDnssecNotice").click(function(){
-            ajaxCall("/api/ctrld/general/set", {general: {dnssecNoticeAcknowledged: '1'}}, function(){
-                $("#dnssecNotice").addClass('hidden');
-            });
-        });
-
         // Local-zone delegation helper: ensures a "Local resolver" upstream
         // exists pointing at the configured localZoneResolverHost/Port, then
         // creates policy rows delegating *.in-addr.arpa and the internal
@@ -96,12 +90,6 @@
         updateServiceControlUI('ctrld');
     });
 </script>
-
-<div id="dnssecNotice" class="alert alert-warning{% if general.dnssecNoticeAcknowledged == '1' %} hidden{% endif %}" role="alert" style="margin-bottom: 15px;">
-    <button type="button" id="dismissDnssecNotice" class="close" style="margin-left: 10px;">&times;</button>
-    <strong>{{ lang._('DNSSEC') }}:</strong>
-    {{ lang._('ctrld does not independently validate DNSSEC locally. NextDNS does validate DNSSEC on their own infrastructure and blocks any response with an invalid signature or on a zone that is not properly signed, so validation is not absent from the pipeline -- it happens upstream instead of locally. This makes the trust model hop-by-hop (trusting NextDNS\'s validation and infrastructure integrity) rather than end-to-end (independently verifiable locally regardless of any intermediate party). This is a real difference, but not an unusual posture: most consumer encrypted-DNS tooling, including AdGuard Home\'s typical configuration, works the same way.') }}
-</div>
 
 <ul class="nav nav-tabs" data-tabs="tabs" id="maintabs">
     <li class="active"><a data-toggle="tab" href="#general">{{ lang._('General') }}</a></li>

@@ -33,17 +33,11 @@ this alternative would itself require comparable new plugin
 infrastructure to become GUI-manageable.
 
 DNSSEC note: ctrld is a forwarding proxy and does not independently
-validate DNSSEC locally. NextDNS does validate DNSSEC on its own
-infrastructure and blocks responses with invalid signatures or on
-zones that are not properly signed, so validation is not absent from
-the pipeline -- it happens upstream instead of locally. This makes the
-trust model hop-by-hop (trusting NextDNS's validation and infrastructure
-integrity) rather than end-to-end (independently verifiable locally
-regardless of any intermediate party). This is a real difference, but
-not an unusual posture: most consumer encrypted-DNS tooling, including
-AdGuard Home's typical configuration, works the same way. The plugin's
-GUI surfaces this tradeoff persistently on the main configuration page
-rather than hiding it in a tooltip.
+validate DNSSEC locally -- NextDNS validates it upstream instead, making
+the trust model hop-by-hop rather than end-to-end. This is a real
+difference from a locally-validating resolver, but not an unusual posture
+for consumer encrypted-DNS tooling generally. See docs/ctrld.md for the
+full explanation.
 
 Known prerequisite for upstream distribution: ctrld is not currently
 available as a FreeBSD port and is only distributed as a manual binary
@@ -60,8 +54,7 @@ Plugin Changelog:
 0.0.1
 	- Initial version: listener management, upstream profile management
 	  (with a NextDNS quick-add flow), CIDR/domain/MAC policy routing
-	  rules, local-zone delegation helper, discovered-clients view,
-	  service lifecycle integration, and a persistent DNSSEC status
-	  panel.
+	  rules, local-zone delegation helper, discovered-clients view, and
+	  service lifecycle integration.
 
 WWW: https://github.com/Control-D-Inc/ctrld

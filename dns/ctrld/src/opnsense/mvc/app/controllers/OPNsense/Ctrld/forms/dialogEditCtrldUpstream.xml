@@ -3,32 +3,36 @@
         <id>upstream.enabled</id>
         <label>Enabled</label>
         <type>checkbox</type>
+        <help>Disable to keep this profile without offering it as a routing target.</help>
     </field>
     <field>
         <id>upstream.name</id>
         <label>Name</label>
         <type>text</type>
+        <help>Label used to refer to this upstream in policy rules and in the generated config.</help>
     </field>
     <field>
         <id>upstream.nextdnsProfileId</id>
         <label>NextDNS profile ID (quick-add)</label>
         <type>text</type>
-        <help>Paste just the NextDNS profile ID (e.g. abc123) and the type/endpoint fields below are filled in automatically as https://dns.nextdns.io/&lt;id&gt; with type doh3. Leave blank for a non-NextDNS upstream.</help>
+        <help>Paste just the NextDNS profile ID (e.g. abc123) to auto-fill the type/endpoint fields below as https://dns.nextdns.io/&lt;id&gt; with type doh3. Leave blank for a non-NextDNS upstream.</help>
     </field>
     <field>
         <id>upstream.type</id>
         <label>Type</label>
         <type>dropdown</type>
+        <help>doh3 is NextDNS's recommended protocol; use dot or legacy only for upstreams that don't support DNS-over-HTTPS.</help>
     </field>
     <field>
         <id>upstream.endpoint</id>
         <label>Endpoint</label>
         <type>text</type>
-        <help>URL for doh/doh3, host[:port] for dot/legacy.</help>
+        <help>URL for doh/doh3 upstreams, host[:port] for dot/legacy upstreams.</help>
     </field>
     <field>
         <id>upstream.timeout</id>
         <label>Timeout (ms)</label>
         <type>text</type>
+        <help>How long ctrld waits for this upstream to respond before treating the query as failed.</help>
     </field>
 </form>

@@ -34,10 +34,19 @@ sh opnsense-plugins/dns/ctrld/tools/deploy-dev.sh
 ```
 
 Re-run the script (after your own `git pull`) whenever you want to
-redeploy. Test against a spare/VM
-instance if you have one, not a box your LAN's live DNS depends on — this
-plugin has been syntax-checked and cross-verified against real OPNsense core
-source, but has never actually booted inside the OPNsense MVC runtime.
+redeploy. Test against a spare/VM instance if you have one, not a box your
+LAN's live DNS depends on — the plugin loads and its pages render, but the
+actual DNS-serving behavior (rendered `ctrld.toml`, discovered-clients
+parsing) hasn't been exercised against a live `ctrld` instance yet.
+
+## Documentation
+
+- [`dns/ctrld/docs/ctrld.md`](dns/ctrld/docs/ctrld.md) — reference doc:
+  what the plugin does, why it's designed this way, the DNSSEC tradeoff,
+  every settings field, known limitations, and troubleshooting.
+- [`dns/ctrld/docs/hybrid-dns-howto.md`](dns/ctrld/docs/hybrid-dns-howto.md)
+  — step-by-step guide to actually configuring a combined
+  Unbound + Dnsmasq + ctrld/NextDNS setup, the reason this plugin exists.
 
 ## Known prerequisite before a real upstream PR
 

@@ -24,15 +24,11 @@
             <Mask>/^[0-9a-fA-F.:]+$/</Mask>
         </localZoneResolverHost>
         <localZoneResolverPort type="IntegerField">
-            <Default>53053</Default>
+            <Default>53</Default>
             <Required>Y</Required>
             <MinimumValue>1</MinimumValue>
             <MaximumValue>65535</MaximumValue>
             <ValidationMessage>Choose a port between 1 and 65535.</ValidationMessage>
         </localZoneResolverPort>
-        <dnssecNoticeAcknowledged type="BooleanField">
-            <Default>0</Default>
-            <Required>Y</Required>
-        </dnssecNoticeAcknowledged>
     </items>
 </model>

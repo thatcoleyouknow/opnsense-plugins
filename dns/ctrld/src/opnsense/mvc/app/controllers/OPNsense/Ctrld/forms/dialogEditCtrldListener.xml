@@ -3,17 +3,19 @@
         <id>listener.enabled</id>
         <label>Enabled</label>
         <type>checkbox</type>
+        <help>Disable to keep this listener's configuration without starting it.</help>
     </field>
     <field>
         <id>listener.description</id>
         <label>Description</label>
         <type>text</type>
+        <help>Optional label shown in the listener list and used as the policy name in the generated config.</help>
     </field>
     <field>
         <id>listener.interface</id>
         <label>Interface</label>
         <type>dropdown</type>
-        <help>Listeners must bind to a specific interface/VLAN. "All interfaces" / 0.0.0.0 is never offered here.</help>
+        <help>Listeners must bind to one specific interface/VLAN -- "all interfaces"/0.0.0.0 is never offered here.</help>
     </field>
     <field>
         <id>listener.port</id>
