@@ -167,13 +167,16 @@ usually means ctrld never actually started.
   binary download from Control-D's GitHub releases. This plugin assumes
   `ctrld` is already installed, the same posture `dns/dnscrypt-proxy` takes
   toward its own port dependency.
-- **`ctrld clients list` output parsing is a best-effort table parse.**
-  ctrld has no JSON/API mode for client discovery; the Discovered Clients
-  tab assumes a header row containing the word "ip" (case-insensitive) and
-  bails out (returning zero rows, not an error) if the real output doesn't
-  look like that -- a likely cause if the tab stays empty despite traffic
-  having flowed. Run `ctrld clients list` directly (SSH) to compare its
-  real output against `ClientsController::searchAction()`'s assumptions.
+- **`ctrld clients list` output parsing.** ctrld has no JSON/API mode for
+  client discovery, so `ClientsController::searchAction()` parses its
+  human-readable table: a box-drawn ASCII table (`+---+` border lines,
+  `|`-delimited cells), with columns named IP/Hostname/Mac/Discovered
+  (verified against a live instance's real output -- an earlier version of
+  this parser assumed a plain whitespace-aligned table with a "Source"
+  column instead, which matched nothing and left the tab empty). If a
+  future `ctrld` version changes this table format again, the parser will
+  need updating the same way -- run `ctrld clients list` directly (SSH) to
+  compare its real output against the parser's assumptions.
 - **The generated `ctrld.toml` matches ctrld's documented config shape**
   (`networks`/`rules` arrays, multi-upstream fallback lists,
   `failover_rcodes`) verified against ctrld's own `docs/config.md` and by
@@ -255,10 +258,10 @@ lease file on a live box -- `ps auxww | grep dnsmasq` showed no
 activity while OPNsense's other two lease-adjacent paths sat stale);
 (3) even once found, `discover_refresh_interval` defaults to 120 seconds,
 so allow a couple of minutes after traffic flows before expecting to see
-anything; (4) if all of that checks out and it's still empty, the
-`ctrld clients list` output-parsing assumption above may not match
-ctrld's real output on your version -- run it directly over SSH and
-compare.
+anything; (4) if `ctrld clients list` (SSH) shows real rows but the UI
+still doesn't, that's a parser mismatch -- see the known limitation above
+for the exact table format the parser expects, and compare against what
+your version of `ctrld` actually prints.
 
 **`service ctrld stop` appears to succeed but a new ctrld process is
 running again moments later, and/or `service ctrld start` fails with
