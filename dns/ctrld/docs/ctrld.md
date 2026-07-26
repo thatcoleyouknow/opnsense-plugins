@@ -125,14 +125,14 @@ dedicated NextDNS profile; domain-match rows handle local-zone delegation.
 | Description | Label shown in the list. |
 | Listener | Which listener this rule applies to. |
 | Match type | `cidr` for VLAN/network routing, `domain` for split-horizon delegation (e.g. `*.in-addr.arpa`, `internal`), `mac` for per-device rules. |
-| Match value | The CIDR, domain, or MAC address to match, depending on match type. For a `cidr` rule, leave blank when picking a listener and its interface's network is filled in automatically -- fully editable/overridable, not a locked value. |
+| Match value | The CIDR, domain, or MAC address to match, depending on match type. For a `cidr` rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- fully editable/overridable, not a locked value. |
 | Upstream profile | Where matching queries are routed. |
 | Fallback upstream | Optional. Tried only if the primary upstream above times out or returns SERVFAIL -- not on every query. Leave blank for no fallback. |
 
 ### Local-Zone Delegation and Discovered Clients pages
 
 The Local-Zone Delegation page is a guided shortcut: clicking **Create
-local-zone delegation rules** creates an Upstream row for Dnsmasq (using
+local-zone delegation policies** creates an Upstream row for Dnsmasq (using
 the General page's host/port) plus one pair of Policy rows *per enabled
 listener* — one delegating `168.192.in-addr.arpa`, one delegating
 `internal`, both to that Upstream. It reuses an existing "Local resolver"

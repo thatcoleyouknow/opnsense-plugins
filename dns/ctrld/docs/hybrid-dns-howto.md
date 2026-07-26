@@ -93,7 +93,7 @@ traffic to its NextDNS profile:
 | LAN | cidr | *(your LAN CIDR)* | NextDNS LAN |
 
 Then handle local-zone delegation: go to the **Local-Zone Delegation** page
-and click **Create local-zone delegation rules**. This creates an Upstream
+and click **Create local-zone delegation policies**. This creates an Upstream
 row for Dnsmasq (using the host/port from step 2) plus two Policy rows —
 one for `168.192.in-addr.arpa`, one for `internal` — routing those to it
 instead of NextDNS. (Equivalent by hand: an Upstream row named "Local

@@ -17,6 +17,12 @@
         // rather than reading it out of a form on this page -- since the
         // General tab became its own separate blade, its form doesn't
         // exist in this page's DOM to read from directly.
+        //
+        // Uses ajaxGet(), not ajaxCall(): ApiMutableModelControllerBase's
+        // inherited getAction() only populates its response when
+        // $this->request->isGet() -- ajaxCall() always POSTs (confirmed
+        // against OPNsense core's opnsense.js), which made this silently
+        // come back as an empty [], read below as "host/port not set".
         $("#createLocalZoneDelegation").click(function(){
             var $btn = $(this);
             if ($btn.prop('disabled')) {
@@ -112,7 +118,7 @@
                 });
             }
 
-            ajaxCall("/api/ctrld/general/get", {}, function(generalResponse){
+            ajaxGet("/api/ctrld/general/get", {}, function(generalResponse){
                 var general = generalResponse.general || {};
                 if (!general.localZoneResolverHost || !general.localZoneResolverPort) {
                     finish("Set the Local-zone resolver host/port on the General page first.", true);
@@ -128,6 +134,6 @@
 
 <div class="content-box">
     <button id="createLocalZoneDelegation" type="button" class="btn btn-primary">
-        {{ lang._('Create local-zone delegation rules') }}
+        {{ lang._('Create local-zone delegation policies') }}
     </button>
 </div>
