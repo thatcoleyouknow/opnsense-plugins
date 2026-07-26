@@ -247,3 +247,24 @@ if nothing's queried through it, there's nothing to discover, which is
 correct behavior, not a bug; (2) if traffic has definitely flowed, the
 `ctrld clients list` output-parsing assumption above may not match ctrld's
 real output on your version -- run it directly over SSH and compare.
+
+**`service ctrld stop` appears to succeed but a new ctrld process is
+running again moments later, and/or `service ctrld start` fails with
+"process already running, pid: -1".** `rc.d/ctrld` runs ctrld under
+`daemon(8)` with `-r` (auto-restart on exit) for resilience. Confirmed
+against `daemon(8)`'s own man page: the `-p`/`--child-pidfile` flag records
+the *child's* PID, and rc.subr's stop action only knows how to signal
+whatever PID is in the tracked pidfile -- so with only `-p` set, `stop`
+kills the child, but the still-running daemon(8) *supervisor* process
+(separate from the child, visible in `ps` as `daemon: ...(daemon)`)
+immediately respawns it per `-r`, since nothing ever told the supervisor
+itself to stop. Fixed by also passing `-P`/`--supervisor-pidfile` and
+pointing rc.subr's own `pidfile`/`procname` at the *supervisor*, not the
+child -- confirmed via the same man page that signaling the supervisor
+correctly forwards the kill to the child first, with no restart. If
+you're on an older checkout, this may explain the earlier `/etc/controld/
+ctrld.toml` mystery too: with `stop` not actually working, a stale ctrld
+process could have kept running on whatever config it loaded at its own
+last real start, regardless of how many times the file was correctly
+regenerated afterward, or how many "reload" calls followed. Redeploy and
+retry the stop/reload/start sequence from scratch.

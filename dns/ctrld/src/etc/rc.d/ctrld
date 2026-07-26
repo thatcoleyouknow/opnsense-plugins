@@ -29,11 +29,21 @@ load_rc_config $name
 : ${ctrld_config:="/etc/controld/ctrld.toml"}
 : ${ctrld_bin:="/usr/local/bin/ctrld"}
 : ${ctrld_pidfile:="/var/run/ctrld.pid"}
+: ${ctrld_supervisor_pidfile:="/var/run/ctrld_supervisor.pid"}
 
-pidfile="${ctrld_pidfile}"
-procname="${ctrld_bin}"
+# rc.subr's pidfile/procname must point at daemon(8)'s own supervisor
+# process, not the ctrld child. daemon(8)'s own man page spells out why:
+# "the --child-pidfile option will give you the child's ID to signal when
+# you attempt to stop the service, causing daemon to restart the child" --
+# i.e. with -r (restart) set, `service ctrld stop` killing only the child
+# just makes the still-running supervisor immediately respawn it. Killing
+# the *supervisor* (via -P) correctly forwards SIGTERM to the child first,
+# then exits, with no restart. -p is kept too so the actual ctrld PID is
+# still recorded somewhere, just not what rc.subr itself tracks.
+pidfile="${ctrld_supervisor_pidfile}"
+procname="/usr/sbin/daemon"
 command="/usr/sbin/daemon"
-command_args="-c -f -r -p ${ctrld_pidfile} -T ctrld ${ctrld_bin} run --config ${ctrld_config}"
+command_args="-c -f -r -P ${ctrld_supervisor_pidfile} -p ${ctrld_pidfile} -T ctrld ${ctrld_bin} run --config ${ctrld_config}"
 
 # Without this, rc.subr rejects "reload" as an unrecognized directive and
 # exits non-zero without touching the running process -- silently, since
