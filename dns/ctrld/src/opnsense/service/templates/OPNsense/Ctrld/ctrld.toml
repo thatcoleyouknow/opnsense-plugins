@@ -52,15 +52,39 @@
     auto-discovery has no reason to know this OPNsense-specific path, so
     client/hostname discovery silently finds nothing.
 #}
+{#
+    helpers.getNodeByTag(...) | default(...) below, matching General.xml's
+    own <Default> values -- not direct OPNsense.ctrld.general.X dot-chain
+    access. If `template reload` ever runs before the General page has
+    been saved once (e.g. right after plugin install), OPNsense.ctrld has
+    no 'general' key at all yet: Jinja2's dot-chain access raises
+    UndefinedError immediately on that missing *intermediate* step, before
+    a trailing |default() filter ever gets a chance to run (confirmed by
+    testing this exact scenario against the render harness -- an earlier
+    version of this fix used dot-chain access, which looked fine against
+    the normal case but threw on this one). getNodeByTag() doesn't have
+    that problem: it returns None cleanly at any missing depth, by design
+    (see this file's own header comment on it, and its use throughout the
+    [listener] section below).
+
+    |default(X, true) -- not plain |default(X): the second, positional
+    true makes Jinja2's default filter also treat a "falsy" value as
+    needing the fallback, not just its own Undefined sentinel. Plain
+    |default(X) leaves a real Python None (exactly what getNodeByTag()
+    returns) completely unchanged, which then renders as the literal
+    4-character string "None" -- confirmed by testing this exact scenario
+    too, and it's the identical failure class the listener-IP resolution
+    fix elsewhere in this plugin already had to work around once before.
+#}
 [service]
-    log_level = '{{ OPNsense.ctrld.general.logLevel }}'
+    log_level = '{{ helpers.getNodeByTag('OPNsense.ctrld.general.logLevel') | default('info', true) }}'
     log_path = '/var/log/ctrld.log'
     dhcp_lease_file_path = '/var/db/dnsmasq.leases'
     dhcp_lease_file_format = 'dnsmasq'
-    cache_enable = {{ 'true' if OPNsense.ctrld.general.cacheEnable == '1' else 'false' }}
-    cache_size = {{ OPNsense.ctrld.general.cacheSize }}
-    cache_ttl_override = {{ OPNsense.ctrld.general.cacheTtlOverride }}
-    cache_serve_stale = {{ 'true' if OPNsense.ctrld.general.cacheServeStale == '1' else 'false' }}
+    cache_enable = {{ 'true' if (helpers.getNodeByTag('OPNsense.ctrld.general.cacheEnable') | default('1', true)) == '1' else 'false' }}
+    cache_size = {{ helpers.getNodeByTag('OPNsense.ctrld.general.cacheSize') | default(4096, true) }}
+    cache_ttl_override = {{ helpers.getNodeByTag('OPNsense.ctrld.general.cacheTtlOverride') | default(0, true) }}
+    cache_serve_stale = {{ 'true' if (helpers.getNodeByTag('OPNsense.ctrld.general.cacheServeStale') | default('1', true)) == '1' else 'false' }}
 
 {% if helpers.toList('OPNsense.ctrld.listeners.listeners.listener') %}
 [network]
@@ -79,10 +103,19 @@
 {% set ns2 = namespace(up_idx = 0, up_uuid_map = {}) %}
 {% for upstream in helpers.toList('OPNsense.ctrld.upstreams.upstreams.upstream') %}
 {% if upstream.enabled == '1' %}
+{# nextdnsProfileId is authoritative over the stored endpoint whenever
+   it's set, computed fresh here rather than trusted from a value the
+   quick-add JS wrote once at edit time -- upstreams.volt's own quick-add
+   only auto-fills endpoint as a one-time convenience, so if someone
+   later hand-edits endpoint directly, a stored/cached endpoint could
+   silently drift from what the profile ID actually implies. Recomputing
+   it here means the two fields can never actually desync in the
+   rendered config, regardless of what's cached in either one. #}
+{% set endpoint = 'https://dns.nextdns.io/' ~ upstream.nextdnsProfileId if upstream.nextdnsProfileId else upstream.endpoint %}
   [upstream.{{ ns2.up_idx }}]
     name = '{{ upstream.name }}'
     type = '{{ upstream.type }}'
-    endpoint = '{{ upstream.endpoint }}'
+    endpoint = '{{ endpoint }}'
     timeout = {{ upstream.timeout }}
 {% set ns2.up_uuid_map = ns2.up_uuid_map.update({upstream['@uuid']: ns2.up_idx}) or ns2.up_uuid_map %}
 {% set ns2.up_idx = ns2.up_idx + 1 %}

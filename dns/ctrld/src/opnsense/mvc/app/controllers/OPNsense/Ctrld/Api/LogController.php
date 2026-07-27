@@ -67,6 +67,13 @@ class LogController extends ApiControllerBase
 {
     public function searchAction()
     {
+        // Releases PHP's file-based session lock before the configdRun()
+        // call below (same reasoning as ClientsController::searchAction())
+        // -- every search keystroke or page change on this Log page shells
+        // out to `ctrld log`, and without this it'd serialize every other
+        // request from the same browser session behind each one.
+        session_write_close();
+
         $backend = new Backend();
         $output = trim((string)$backend->configdRun('ctrld log'));
         $searchPhrase = strtolower((string)$this->request->get('searchPhrase', null, ''));

@@ -77,6 +77,23 @@
         // $this->request->isGet() -- ajaxCall() always POSTs (confirmed
         // against OPNsense core's opnsense.js), which made this silently
         // come back as an empty [], read below as "host/port not set".
+        // searchItem serializes OptionField/ModelRelationField values (e.g.
+        // matchType, listener) as their full {key: {value, selected}} map,
+        // not a plain string -- the same fact already documented in
+        // Api/ListenerController.php's selectedOption(). Extracts the
+        // selected key either way, so a comparison against a plain UUID/
+        // string value works regardless of which shape the grid handed
+        // back for that particular field.
+        function selectedKey(value) {
+            if (typeof value !== 'object' || value === null) {
+                return value;
+            }
+            var key = Object.keys(value).find(function (k) {
+                return value[k] && value[k].selected;
+            });
+            return key !== undefined ? key : '';
+        }
+
         function runDomainDelegation($btn, zones, dialogTitle, descriptionPrefix) {
             if ($btn.prop('disabled')) {
                 return;
@@ -107,7 +124,7 @@
                         var existingPolicies = policyResponse.rows || [];
                         function alreadyExists(listenerUuid, zone) {
                             return existingPolicies.some(function(row){
-                                return row.listener === listenerUuid && row.matchType === 'domain' && row.matchValue === zone;
+                                return selectedKey(row.listener) === listenerUuid && selectedKey(row.matchType) === 'domain' && row.matchValue === zone;
                             });
                         }
                         var toCreate = [];
@@ -122,8 +139,21 @@
                             finish("Nothing to do -- matching delegation rules already exist for every enabled listener.");
                             return;
                         }
-                        var deferreds = toCreate.map(function(item){
-                            return ajaxCall("/api/ctrld/policy/addItem", {
+                        // Tracked manually rather than via $.when.apply(), for
+                        // two reasons: addItem returns HTTP 200 with
+                        // {result: 'failed', ...} on a validation failure (not
+                        // a rejected/non-2xx response), so the jqXHR promise
+                        // itself resolves either way and can't distinguish
+                        // success from failure on its own; and $.when's
+                        // .always() callback shape differs between exactly
+                        // one and more than one deferred, which is easy to
+                        // get wrong. Inspecting each response directly avoids
+                        // both problems.
+                        var created = 0;
+                        var failed = 0;
+                        var remaining = toCreate.length;
+                        toCreate.forEach(function(item){
+                            ajaxCall("/api/ctrld/policy/addItem", {
                                 policy: {
                                     enabled: '1',
                                     description: descriptionPrefix + item.zone,
@@ -132,11 +162,22 @@
                                     matchValue: item.zone,
                                     upstream: upstreamUuid
                                 }
+                            }, function(response){
+                                if (response && response.result === 'saved') {
+                                    created++;
+                                } else {
+                                    failed++;
+                                }
+                                remaining--;
+                                if (remaining === 0) {
+                                    $("#grid-policies").bootgrid('reload');
+                                    if (failed === 0) {
+                                        finish("Created " + created + " delegation rule(s).");
+                                    } else {
+                                        finish("Created " + created + " delegation rule(s); " + failed + " failed -- check the Policies grid.", true);
+                                    }
+                                }
                             });
-                        });
-                        $.when.apply($, deferreds).always(function(){
-                            $("#grid-policies").bootgrid('reload');
-                            finish("Created " + toCreate.length + " delegation rule(s).");
                         });
                     });
                 });
@@ -149,7 +190,31 @@
                     })[0];
 
                     if (existing) {
-                        withUpstream(existing.uuid);
+                        var desiredEndpoint = host + ':' + port;
+                        if (existing.endpoint === desiredEndpoint) {
+                            withUpstream(existing.uuid);
+                            return;
+                        }
+                        // Found by name, but its endpoint no longer matches
+                        // the General page's current host/port -- reusing it
+                        // as-is would silently keep routing local-zone
+                        // delegation to a stale, possibly dead endpoint.
+                        // Bring it in line with the current setting first.
+                        ajaxCall("/api/ctrld/upstream/setItem/" + existing.uuid, {
+                            upstream: {
+                                enabled: '1',
+                                name: existing.name,
+                                type: 'legacy',
+                                endpoint: desiredEndpoint,
+                                timeout: '5000'
+                            }
+                        }, function(setResponse){
+                            if (setResponse && setResponse.result === 'saved') {
+                                withUpstream(existing.uuid);
+                            } else {
+                                finish("Failed to update the existing Local resolver upstream's endpoint -- check the Upstreams page.", true);
+                            }
+                        });
                         return;
                     }
 

@@ -25,10 +25,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  * Values rendered here (hostname, mac, ip, source) come from
- * Api/ClientsController::searchAction(), which already HTML-escapes and
- * format-validates everything server-side -- this widget does not need to
- * (and must not rely on client-side escaping instead of that).
+ * Api/ClientsController::searchAction(), which format-validates
+ * everything server-side (drops anything that isn't a real IP/MAC, caps
+ * free-text length) but deliberately does NOT HTML-escape -- the other
+ * consumer of that same endpoint, clients.volt's grid, renders plain-text
+ * formatter output as text, not HTML, so server-side escaping just meant
+ * visibly double-escaped entities there. This widget is the one consumer
+ * that actually builds raw HTML strings below, so it's the one that has
+ * to escape -- via escapeHtml(), applied to every value at the point it's
+ * interpolated, not assumed safe because it came from the API.
  */
+
+function escapeHtml(value) {
+    const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => entities[ch]);
+}
 
 export default class CtrldClients extends BaseTableWidget {
     constructor(config) {
@@ -65,11 +76,11 @@ export default class CtrldClients extends BaseTableWidget {
         // (see BaseTableWidget.populateRow()) -- not the bootgrid-style
         // {columnId, formatters} shape used elsewhere in this plugin.
         let rows = (clientsResponse?.rows || []).map((client) => {
-            let hostname = client.hostname && client.hostname !== '*' ? client.hostname : this.translations.not_available;
-            let mac = client.mac && client.mac !== '*' ? client.mac : this.translations.not_available;
+            let hostname = client.hostname && client.hostname !== '*' ? escapeHtml(client.hostname) : this.translations.not_available;
+            let mac = client.mac && client.mac !== '*' ? escapeHtml(client.mac) : this.translations.not_available;
             let identity = `<i class="fa fa-laptop"></i> <b data-toggle="tooltip" title="${mac}">${hostname}</b>`;
-            let ipLink = `<a href="/ui/ctrld/clients">${client.ip}</a>`;
-            let source = client.source || this.translations.not_available;
+            let ipLink = `<a href="/ui/ctrld/clients">${escapeHtml(client.ip)}</a>`;
+            let source = client.source ? escapeHtml(client.source) : this.translations.not_available;
             return [identity, [ipLink, source]];
         });
 

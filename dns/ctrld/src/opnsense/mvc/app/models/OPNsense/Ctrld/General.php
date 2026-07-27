@@ -52,13 +52,20 @@ class General extends BaseModel
     {
         $messages = parent::performValidation($validateFullModel);
 
+        // 'localhost' was previously checked for here too, but
+        // localZoneResolverHost's own <Mask> (General.xml,
+        // /^[0-9a-fA-F.:]+$/) already rejects any letter outside a-f, so
+        // a saved model can never actually contain the literal string
+        // "localhost" -- that branch was unreachable dead code, not a
+        // real accepted value. ::1 stays, since it does pass the mask
+        // (only digits/colons).
         $host = (string)$this->localZoneResolverHost;
-        if (!Util::isIpAddress($host) && $host !== 'localhost') {
+        if (!Util::isIpAddress($host)) {
             $messages->appendMessage(new Message(
                 gettext("Enter a valid IP address of the local resolver used for zone delegation."),
                 "localZoneResolverHost"
             ));
-        } elseif ((string)$this->enabled == '1' && in_array($host, ['127.0.0.1', '::1', 'localhost'], true)) {
+        } elseif ((string)$this->enabled == '1' && in_array($host, ['127.0.0.1', '::1'], true)) {
             $dnsmasq = $this->getDnsmasqStatus();
             if ($dnsmasq !== null && !$dnsmasq['enabled']) {
                 $messages->appendMessage(new Message(

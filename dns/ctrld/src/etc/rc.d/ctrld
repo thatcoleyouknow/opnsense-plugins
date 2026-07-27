@@ -43,15 +43,50 @@ load_rc_config $name
 pidfile="${ctrld_supervisor_pidfile}"
 procname="/usr/sbin/daemon"
 command="/usr/sbin/daemon"
-command_args="-c -f -r -P ${ctrld_supervisor_pidfile} -p ${ctrld_pidfile} -T ctrld ${ctrld_bin} run --config ${ctrld_config}"
+# No -T (syslog tag): daemon(8)'s own man page says any syslog parameter,
+# including -T alone, implicitly enables -S (syslog output) -- which then
+# makes -f redirect stdout/stderr to syslog instead of purely /dev/null,
+# contradicting this file's own comment above. ctrld already writes its
+# full structured log straight to log_path, bypassing stdout/stderr for
+# normal operation, so there's nothing here that should go to syslog at
+# all -- -f alone is what actually gives the /dev/null behavior described
+# above.
+command_args="-c -f -r -P ${ctrld_supervisor_pidfile} -p ${ctrld_pidfile} ${ctrld_bin} run --config ${ctrld_config}"
+
+# Runs after `configd template reload OPNsense/Ctrld` has produced
+# ctrld.toml, immediately before ctrld actually reads it, regardless of
+# which caller got here -- the GUI's Apply button (inherited
+# ApiMutableServiceControllerBase::reconfigureAction(), which
+# Api/ServiceController.php doesn't override), this plugin's own
+# ctrld_configure_do() (boot/WAN-IP-change events, via the 'dns'
+# plugin-hook group), or a bare `service ctrld restart` from the console.
+# rc.subr's default restart is stop+start, so
+# hooking both start and reload (not restart directly) already covers
+# every real path to (re)starting ctrld -- this is deliberately the single
+# choke point for listener IP resolution instead of a PHP-side call added
+# at each caller, which is exactly the kind of "forgot one call site" bug
+# that took down every listener, not just WireGuard's, on 2026-07-27 (see
+# dns/ctrld/docs/ctrld.md's Troubleshooting section).
+start_precmd="ctrld_prestart"
+reload_precmd="ctrld_prestart"
+ctrld_prestart()
+{
+    /usr/local/bin/php -f /usr/local/opnsense/scripts/OPNsense/Ctrld/patch_listener_ips.php
+}
 
 # Without this, rc.subr rejects "reload" as an unrecognized directive and
-# exits non-zero without touching the running process -- silently, since
-# ApiMutableServiceControllerBase::reconfigureAction() (core OPNsense,
-# invoked by this plugin's Apply buttons) doesn't check that exit status.
-# `ctrld reload` is ctrld's own subcommand for telling an already-running
-# instance to reload its config (confirmed in ctrld's own --help output),
-# distinct from restarting the daemon(8)-wrapped process entirely.
+# exits non-zero without touching the running process. `ctrld reload` is
+# ctrld's own subcommand for telling an already-running instance to
+# reload its config (confirmed in ctrld's own --help output), distinct
+# from restarting the daemon(8)-wrapped process entirely. Wired up end to
+# end via actions.d/actions_ctrld.conf's own [reload] entry, which just
+# calls this script's own reload directive -- ApiMutableServiceController
+# Base::reconfigureAction() (core OPNsense, invoked by this plugin's
+# Apply buttons) doesn't currently take this path itself, since
+# Api/ServiceController.php doesn't override reconfigureForceRestart()
+# (defaults to always forcing a full restart instead), but a direct
+# `service ctrld reload` from the console does, and reload_precmd above
+# means listener IP resolution still runs correctly either way.
 extra_commands="reload"
 reload_cmd="ctrld_reload"
 ctrld_reload()

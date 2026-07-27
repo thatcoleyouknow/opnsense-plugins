@@ -47,9 +47,19 @@ class Policy extends BaseModel
         // with a hyphen), optionally preceded by a "*." wildcard (e.g.
         // *.in-addr.arpa, shown as a valid example in the GUI's own help
         // text), with a length cap matching RFC 1035's 253-char limit.
-        $domainPattern = '/^(\*\.)?' .
+        //
+        // \A/\z (not ^/$): PCRE's $ matches either the true string end or
+        // just before a single trailing newline, so "internal\n" would
+        // otherwise still be reported as a match -- preg_match() only
+        // returns whether a match occurred, not whether it consumed the
+        // whole string, unlike Phalcon's own Mask validator (which also
+        // rejects this, independently, via matchValue's <Mask> in
+        // Policy.xml -- this is defense-in-depth on top of that, not the
+        // only thing standing between this and a newline reaching the
+        // rendered TOML and crash-looping ctrld).
+        $domainPattern = '/\A(\*\.)?' .
             '([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.){0,10}' .
-            '[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/';
+            '[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\z/';
 
         foreach ($this->policies->policy->iterateItems() as $uuid => $node) {
             if (!$validateFullModel && !$node->isFieldChanged()) {
@@ -73,7 +83,7 @@ class Policy extends BaseModel
                     gettext("Enter a valid domain name, e.g. internal or *.in-addr.arpa."),
                     "policies.policy.{$uuid}.matchValue"
                 ));
-            } elseif ($matchType === 'mac' && !preg_match('/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/', $matchValue)) {
+            } elseif ($matchType === 'mac' && !preg_match('/\A([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}\z/', $matchValue)) {
                 $messages->appendMessage(new Message(
                     gettext("Enter a valid MAC address, e.g. aa:bb:cc:dd:ee:ff."),
                     "policies.policy.{$uuid}.matchValue"

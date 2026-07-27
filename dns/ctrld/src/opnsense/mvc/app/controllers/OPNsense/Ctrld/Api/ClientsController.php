@@ -60,13 +60,32 @@ use OPNsense\Core\Backend;
  * network input (DHCP hostname options, mDNS, etc. -- anything on any
  * client-facing VLAN can set its own hostname), so nothing from it is
  * trusted here: IP/MAC are format-validated and dropped if malformed,
- * everything is length-capped and HTML-escaped before it ever reaches the
- * grid or the dashboard widget.
+ * and everything is length-capped -- but deliberately NOT HTML-escaped
+ * here. This response feeds two different consumers with two different
+ * needs: clients.volt's grid (UIBootgrid/Tabulator) renders plain-string
+ * formatter output as text, not HTML, so escaping here just meant a
+ * hostname like "Bob&Alice-PC" displayed as "Bob&amp;Alice-PC" and could
+ * never be found by searching for a literal "&" (the search phrase was
+ * compared against the pre-escaped string). The one consumer that
+ * actually builds raw HTML from these values, CtrldClients.js's
+ * dashboard widget, does its own escaping at the point it interpolates
+ * them -- see that file's own header comment.
  */
 class ClientsController extends ApiControllerBase
 {
     public function searchAction()
     {
+        // Releases PHP's file-based session lock before the configdRun()
+        // call below, which shells out to `ctrld clients list` and can
+        // take a moment -- without this, the lock serializes every other
+        // request from the same browser session behind this one. Matters
+        // here specifically because the Discovered Clients dashboard
+        // widget polls this endpoint on a timer. Plain session_write_close()
+        // rather than an OPNsense-specific wrapper: confirmed no such
+        // method exists on ApiControllerBase/ControllerBase, this is
+        // standard PHP for releasing the lock mid-request.
+        session_write_close();
+
         $backend = new Backend();
         $output = trim((string)$backend->configdRun('ctrld clients'));
         $searchPhrase = strtolower((string)$this->request->get('searchPhrase', null, ''));
@@ -131,25 +150,24 @@ class ClientsController extends ApiControllerBase
     }
 
     /**
-     * HTML-escape and length-cap free-text ctrld output (hostname,
-     * discovery source) before it reaches a grid or widget.
+     * Length-cap free-text ctrld output (hostname, discovery source).
+     * Deliberately not HTML-escaped here -- see this class's own docblock.
      */
     private function sanitizeText($value, $maxLength = 253)
     {
-        $value = substr((string)$value, 0, $maxLength);
-        return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+        return substr((string)$value, 0, $maxLength);
     }
 
     /**
      * Only pass through a value that's actually an IP address (or ctrld's
-     * "*"/unknown sentinel) -- anything else is dropped rather than
-     * escaped-and-shown, since a malformed "IP" is not useful information.
+     * "*"/unknown sentinel) -- anything else is dropped rather than shown,
+     * since a malformed "IP" is not useful information.
      */
     private function sanitizeIp($value)
     {
         $value = trim((string)$value);
         if ($value === '*' || filter_var($value, FILTER_VALIDATE_IP) !== false) {
-            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+            return $value;
         }
         return '';
     }
@@ -162,7 +180,7 @@ class ClientsController extends ApiControllerBase
     {
         $value = trim((string)$value);
         if ($value === '*' || preg_match('/^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/', $value)) {
-            return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+            return $value;
         }
         return '';
     }

@@ -221,6 +221,24 @@ same interface/port a listener wants; disable it per the
 [how-to](hybrid-dns-howto.md#8-disable-unbound-optional-cleanup)) rather
 than working around it.
 
+**A listener on a WireGuard/OpenVPN/other dynamic-address interface won't
+start, or one bad listener seems to take every other listener down too.**
+Those interface types don't store their address as a plain config.xml
+field the way a static VLAN does (confirmed by checking a real assigned
+WireGuard interface's `<interfaces>` entry: no `<ipaddr>` at all), so the
+config template alone can't resolve it. `rc.d/ctrld`'s
+`start_precmd`/`reload_precmd` runs
+`opnsense/scripts/OPNsense/Ctrld/patch_listener_ips.php` immediately before
+ctrld starts, which resolves each such listener's live address via the
+same `get_interface_ip()`/`get_interface_ipv6()` every core OPNsense
+service uses, and — critically — *removes* (rather than starts with an
+invalid address) any listener whose interface has no live address yet,
+so one interface being down can't crash ctrld's single process and take
+every other listener with it. Confirm this ran: `/etc/controld/ctrld.toml`
+should never contain the literal text `ip = 'None'` once ctrld is actually
+running — if it does, the precmd hook didn't fire or failed; check
+`/var/log/messages` for `ctrld: patch_listener_ips.php failed: ...`.
+
 **The firewall itself still seems to be using another DNS server after
 pointing System DNS servers at ctrld's loopback listener.** Check
 **System → Settings → General → "Allow DNS server list to be overridden by

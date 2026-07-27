@@ -43,7 +43,8 @@
                 </matchType>
                 <matchValue type="TextField">
                     <Required>Y</Required>
-                    <ValidationMessage>Enter a CIDR (e.g. 192.168.3.0/24), domain (e.g. internal), or MAC address matching the selected match type.</ValidationMessage>
+                    <Mask>/^[^'\r\n]*$/</Mask>
+                    <ValidationMessage>Enter a CIDR (e.g. 192.168.3.0/24), domain (e.g. internal), or MAC address matching the selected match type. Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </matchValue>
                 <upstream type="ModelRelationField">
                     <Model>
