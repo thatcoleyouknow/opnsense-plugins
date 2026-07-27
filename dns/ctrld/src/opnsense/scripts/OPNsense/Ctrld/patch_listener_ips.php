@@ -34,11 +34,19 @@
  * The Jinja2 template (service/templates/OPNsense/Ctrld/ctrld.toml) has no
  * access to live interface state at all: confirmed against OPNsense core's
  * own template_helpers.py/template.py, config.xml is its only data source.
- * So those listeners render as the literal string ip = 'None' -- Python's
- * str(None), from a config.xml lookup that found nothing -- which is
- * exactly what ctrld choked on the first time this was attempted
- * ("lookup None on 127.0.0.1:53"). A static VLAN interface's ipaddr
- * already resolves correctly in the template and is never touched here.
+ * So those listeners render with whatever config.xml's <ipaddr> element
+ * literally contains for a dynamic interface -- the string 'None' (Python's
+ * str(None), from a lookup that found nothing at all, e.g. WireGuard/
+ * OpenVPN) or one of interfaces.inc's own magic strings ('dhcp', 'pppoe',
+ * 'track6', 'slaac', 'dhcp6', confirmed against a real interfaces.inc read)
+ * for other dynamic-addressing types -- none of which are a usable IP.
+ * ctrld choked on the 'None' case the first time this was attempted
+ * ("lookup None on 127.0.0.1:53"); the other magic strings are equally
+ * fatal and were an unfixed gap in that first attempt. Detection below
+ * therefore checks "is this a valid IP at all" via is_ipaddr(), not
+ * "does this match the one placeholder string that got tested." A static
+ * VLAN interface's ipaddr already resolves correctly in the template and
+ * is never touched here.
  *
  * Run via rc.d/ctrld's start_precmd/reload_precmd, immediately after
  * `configd template reload OPNsense/Ctrld` has produced ctrld.toml and
@@ -53,8 +61,23 @@
  * Deliberately does NOT write anything back to config.xml: resolving live
  * interface state doesn't belong in persisted, user-editable config, and
  * doing so from a reconfigure path risks a lost-update race against a
- * concurrent GUI save with no clean way to avoid it. This only ever
- * touches the generated /etc/controld/ctrld.toml runtime artifact.
+ * concurrent GUI save with no clean way to avoid it.
+ *
+ * Reads the Jinja2-rendered /etc/controld/ctrld.toml (PRISTINE_TOML_PATH)
+ * but never modifies it -- writes the patched result to a separate
+ * /var/run/ctrld_active.toml (ACTIVE_TOML_PATH), which is what
+ * rc.d/ctrld's ctrld_config actually points `ctrld run --config` at. This
+ * split exists because `service ctrld restart` is a real, supported path
+ * that does NOT re-render the template first -- with the earlier
+ * single-file design, a listener resolved (or dropped) by one patch run
+ * stayed that way until the *next full template render*, so an interface
+ * that only gains an address after ctrld already started (the common case
+ * for an OpenVPN server/client interface waiting on a peer to connect)
+ * could never get picked up by a plain restart. Keeping
+ * PRISTINE_TOML_PATH untouched means every start/restart/reload re-reads
+ * the real current model state and gets a fresh resolution attempt, and
+ * makes it safe to run this script repeatedly without accumulating drift
+ * from patching an already-patched file.
  *
  * get_interface_ip()/get_interface_ipv6() are the same functions every
  * core OPNsense service already relies on for this exact problem.
@@ -77,16 +100,68 @@ require_once 'util.inc';
 require_once 'filter.inc';
 require_once 'system.inc';
 
-const CTRLD_TOML_PATH = '/etc/controld/ctrld.toml';
+const PRISTINE_TOML_PATH = '/etc/controld/ctrld.toml';
+const ACTIVE_TOML_PATH = '/var/run/ctrld_active.toml';
+
+// Real ident/PID on every syslog() call below, instead of relying on
+// each message's own "ctrld: " string prefix and whatever default ident
+// PHP CLI's syslog() falls back to without this.
+openlog('ctrld', LOG_PID, LOG_DAEMON);
+
+/**
+ * Atomic, checked write: a short write (disk full -- a real appliance
+ * failure mode) must never leave a truncated, invalid config for ctrld to
+ * crash-loop on with no logged explanation. Writes to a temp file in the
+ * same directory first, then rename()s over the real target -- atomic on
+ * the same filesystem, so ctrld (or a concurrent read of this same file)
+ * never observes a partially-written file.
+ */
+function ctrld_write_active_toml($contents)
+{
+    $tmpPath = ACTIVE_TOML_PATH . '.tmp.' . getmypid();
+    if (@file_put_contents($tmpPath, $contents) === false) {
+        syslog(LOG_ERR, "ctrld: failed to write {$tmpPath}");
+        return false;
+    }
+    // 0600: this file (like the pristine render it's derived from)
+    // contains NextDNS profile IDs and routing policy -- no other user on
+    // the box needs read access. Set on the temp file before the rename
+    // so the mode is already correct the instant the real path exists,
+    // rather than a brief window where it's whatever chmod()/umask left
+    // it at by default. Unlike PRISTINE_TOML_PATH (whose mode comes from
+    // configd's Template._generate(), which copies the containing
+    // directory's own permission bits and has no per-file mode option in
+    // +TARGETS -- confirmed against the real core source), this file is
+    // written directly by this script, so its mode is fully ours to set.
+    @chmod($tmpPath, 0600);
+    if (!@rename($tmpPath, ACTIVE_TOML_PATH)) {
+        syslog(LOG_ERR, 'ctrld: failed to rename ' . $tmpPath . ' to ' . ACTIVE_TOML_PATH);
+        @unlink($tmpPath);
+        return false;
+    }
+    return true;
+}
 
 function ctrld_patch_listener_ips()
 {
-    if (!file_exists(CTRLD_TOML_PATH)) {
+    if (!file_exists(PRISTINE_TOML_PATH)) {
+        // Nothing rendered yet (plugin installed but never applied) --
+        // leave ACTIVE_TOML_PATH alone; rc.d/ctrld simply won't find a
+        // config to start against, same as before this file existed.
         return;
     }
 
-    $contents = file_get_contents(CTRLD_TOML_PATH);
-    if ($contents === false || strpos($contents, '[listener]') === false) {
+    $contents = file_get_contents(PRISTINE_TOML_PATH);
+    if ($contents === false) {
+        syslog(LOG_ERR, 'ctrld: failed to read ' . PRISTINE_TOML_PATH);
+        return;
+    }
+
+    if (strpos($contents, '[listener]') === false) {
+        // No listeners configured at all -- nothing to patch, just mirror
+        // pristine -> active so ctrld_config always points at whatever the
+        // model's current state actually is.
+        ctrld_write_active_toml($contents);
         return;
     }
 
@@ -108,16 +183,45 @@ function ctrld_patch_listener_ips()
     // "[listener]" table declaration itself) as parts[0], untouched.
     $parts = preg_split('/(?=\n  \[listener\.\d+\]\n)/', $contents);
 
+    // Cross-check the [listener.N] block count the template actually
+    // rendered against this script's own independently-computed
+    // enabled-listener count before touching anything. These normally
+    // agree by construction (both ultimately derive from the same
+    // config.xml), but if a save landed between render and patch, or a
+    // row's <enabled> value doesn't PHP-cast the same way Jinja2's
+    // Undefined-comparison did, positional index N here could silently
+    // mean a *different* listener than [listener.N] in the template --
+    // which would bind the wrong VLAN's gateway IP, a worse failure than
+    // just skipping one listener. Bail out on the whole cycle rather than
+    // guess at a mapping that might be wrong; ACTIVE_TOML_PATH is left
+    // exactly as it was (a stale-but-valid config from the last good
+    // cycle, or simply absent on a first-ever run).
+    $blockCount = 0;
+    foreach ($parts as $part) {
+        if (preg_match('/\[listener\.\d+\]/', $part)) {
+            $blockCount++;
+        }
+    }
+    if ($blockCount !== count($listeners)) {
+        syslog(LOG_ERR, "ctrld: listener count mismatch (template rendered {$blockCount}, model reports " . count($listeners) . ' enabled), leaving active config unpatched this cycle');
+        return;
+    }
+
     for ($i = 1; $i < count($parts); $i++) {
         if (!preg_match('/\[listener\.(\d+)\]/', $parts[$i], $m)) {
             continue;
         }
         $idx = (int)$m[1];
-        if (strpos($parts[$i], "ip = 'None'") === false) {
-            // Already a real static IP (or the lo0 special case, which
-            // the template resolves to a literal loopback address on its
-            // own) -- never touch a block that isn't showing the
-            // unresolved placeholder.
+        if (!preg_match("/ip = '([^']*)'/", $parts[$i], $ipMatch)) {
+            // No ip = '...' at all in this block -- not a shape this
+            // script understands, leave it alone rather than guess.
+            continue;
+        }
+        if (is_ipaddr($ipMatch[1])) {
+            // Already a real static/resolved IP (or the lo0 special case,
+            // which the template resolves to a literal loopback address on
+            // its own) -- never touch a block that isn't showing one of
+            // the unresolved-dynamic-interface placeholders.
             continue;
         }
         if (!isset($listeners[$idx])) {
@@ -132,8 +236,8 @@ function ctrld_patch_listener_ips()
             ? get_interface_ipv6($interface)
             : get_interface_ip($interface);
 
-        if (!empty($resolved)) {
-            $parts[$i] = str_replace("ip = 'None'", "ip = '{$resolved}'", $parts[$i]);
+        if (!empty($resolved) && is_ipaddr($resolved)) {
+            $parts[$i] = preg_replace("/ip = '[^']*'/", "ip = '{$resolved}'", $parts[$i], 1);
         } else {
             // Interface has no live address yet (down, or not up this
             // soon after boot) -- drop the whole block rather than leave
@@ -147,7 +251,7 @@ function ctrld_patch_listener_ips()
         }
     }
 
-    file_put_contents(CTRLD_TOML_PATH, implode('', $parts));
+    ctrld_write_active_toml(implode('', $parts));
 }
 
 try {

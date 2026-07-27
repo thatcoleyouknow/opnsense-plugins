@@ -5,8 +5,8 @@
             <Listeners order="20" url="/ui/ctrld/listeners"/>
             <Upstreams order="30" url="/ui/ctrld/upstreams"/>
             <Policies order="40" url="/ui/ctrld/policies"/>
-            <Clients VisibleName="Discovered Clients" order="60" url="/ui/ctrld/clients"/>
-            <LogFile VisibleName="Log File" order="70" url="/ui/ctrld/log"/>
+            <Clients VisibleName="Discovered Clients" order="50" url="/ui/ctrld/clients"/>
+            <LogFile VisibleName="Log File" order="60" url="/ui/ctrld/log"/>
         </Ctrld>
     </Services>
 </menu>

@@ -1,10 +1,10 @@
 <metadata>
     <ctrldclients>
         <filename>CtrldClients.js</filename>
-        <link>/ui/ctrld/general</link>
+        <link>/ui/ctrld/clients</link>
         <endpoints>
-            <endpoint>api/ctrld/clients/search</endpoint>
-            <endpoint>api/ctrld/general/get</endpoint>
+            <endpoint>/api/ctrld/clients/search</endpoint>
+            <endpoint>/api/ctrld/general/get</endpoint>
         </endpoints>
         <translations>
             <not_available>Not available</not_available>

@@ -11,10 +11,10 @@
             <Default>info</Default>
             <Required>Y</Required>
             <OptionValues>
-                <debug>debug</debug>
-                <info>info</info>
-                <warn>warn</warn>
-                <error>error</error>
+                <debug>Debug</debug>
+                <info>Info</info>
+                <warn>Warn</warn>
+                <error>Error</error>
             </OptionValues>
         </logLevel>
         <localZoneResolverHost type="TextField">

@@ -52,6 +52,22 @@ Jinja2 template without risking an `UndefinedError` — it is, as long as
 for when a *parent* object being entirely missing is a different, more
 dangerous case).
 
+**`performValidation()` cannot express a non-blocking warning.** Every
+`Message` it returns is treated as a hard save failure by
+`ApiMutableModelControllerBase::validate()` — confirmed by reading the
+real, current core source, which unconditionally sets
+`$result["result"] = "failed"` the moment any validation message exists at
+all; the `Message` class's own `$type` constructor argument isn't consulted
+anywhere in that path. There's no core-supported "warn but still let Save
+through" outcome from this specific mechanism. When a check is genuinely
+advisory (e.g. Policy.php flagging an enabled Policy that references a
+disabled Listener/Upstream — a real footgun, but not something that should
+block Save the way an invalid CIDR should), it has to be surfaced somewhere
+else entirely — this plugin does it by post-processing rows in the
+`searchItem` API action instead (see `PolicyController::searchItemAction()`),
+prepending a warning marker into an existing visible grid column rather than
+adding a validation message.
+
 ## `daemon(8)` and `rc.d`
 
 **`-p` (child pidfile) vs `-P` (supervisor pidfile) matters when combined

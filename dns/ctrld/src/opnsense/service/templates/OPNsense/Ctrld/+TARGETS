@@ -1,2 +1,3 @@
 ctrld:/etc/rc.conf.d/ctrld
 ctrld.toml:/etc/controld/ctrld.toml
+newsyslog.conf:/etc/newsyslog.conf.d/ctrld

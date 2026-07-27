@@ -1,9 +1,53 @@
 <acl>
+    <!--
+        Split following the real precedent set by OPNsense core's own
+        Dnsmasq plugin ACL.xml, which separates its Settings page from its
+        Log File page under two different privileges rather than one
+        wildcard covering the whole plugin. Extended here to a third split
+        (Discovered Clients) beyond Dnsmasq's own two, since this plugin
+        specifically has a third page (client/hostname discovery) whose
+        access shouldn't require the same grant as rewriting DNS routing
+        policy for every VLAN either.
+    -->
     <page-ctrld-config>
-        <name>Services: ctrld</name>
+        <name>Services: ctrld: Settings</name>
         <patterns>
-            <pattern>ui/ctrld/*</pattern>
-            <pattern>api/ctrld/*</pattern>
+            <pattern>ui/ctrld/general</pattern>
+            <pattern>ui/ctrld/listeners</pattern>
+            <pattern>ui/ctrld/upstreams</pattern>
+            <pattern>ui/ctrld/policies</pattern>
+            <pattern>api/ctrld/general/*</pattern>
+            <pattern>api/ctrld/listener/*</pattern>
+            <pattern>api/ctrld/listeners/*</pattern>
+            <pattern>api/ctrld/upstream/*</pattern>
+            <pattern>api/ctrld/upstreams/*</pattern>
+            <pattern>api/ctrld/policy/*</pattern>
+            <pattern>api/ctrld/policies/*</pattern>
+            <pattern>api/ctrld/service/*</pattern>
         </patterns>
     </page-ctrld-config>
+    <page-ctrld-clients>
+        <name>Services: ctrld: Discovered Clients</name>
+        <patterns>
+            <pattern>ui/ctrld/clients</pattern>
+            <pattern>api/ctrld/clients/*</pattern>
+            <!--
+                Just this one specific read-only endpoint, not the
+                api/ctrld/general/* wildcard (that belongs to
+                page-ctrld-config). CtrldClients.js's dashboard widget
+                also calls this endpoint to show enabled/disabled state,
+                so a Discovered-Clients-only user can still see that
+                state without also being granted api/ctrld/general/set
+                write access.
+            -->
+            <pattern>api/ctrld/general/get</pattern>
+        </patterns>
+    </page-ctrld-clients>
+    <page-ctrld-log>
+        <name>Services: ctrld: Log File</name>
+        <patterns>
+            <pattern>ui/ctrld/log</pattern>
+            <pattern>api/ctrld/log/*</pattern>
+        </patterns>
+    </page-ctrld-log>
 </acl>

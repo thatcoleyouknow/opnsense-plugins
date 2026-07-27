@@ -18,10 +18,10 @@
                     <Default>doh3</Default>
                     <Required>Y</Required>
                     <OptionValues>
-                        <doh>doh</doh>
-                        <doh3>doh3</doh3>
-                        <dot>dot</dot>
-                        <legacy>legacy</legacy>
+                        <doh>DNS-over-HTTPS (DoH)</doh>
+                        <doh3>DNS-over-HTTPS/3 (DoH3)</doh3>
+                        <dot>DNS-over-TLS (DoT)</dot>
+                        <legacy>Legacy (Plain DNS)</legacy>
                     </OptionValues>
                 </type>
                 <endpoint type="TextField">
@@ -37,7 +37,6 @@
                     <ValidationMessage>Enter a timeout in milliseconds between 100 and 60000.</ValidationMessage>
                 </timeout>
                 <nextdnsProfileId type="TextField">
-                    <Required>N</Required>
                     <Mask>/^[0-9a-fA-F]{0,8}$/</Mask>
                     <ValidationMessage>NextDNS profile IDs are short hexadecimal strings.</ValidationMessage>
                 </nextdnsProfileId>

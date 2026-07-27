@@ -34,10 +34,12 @@ sh opnsense-plugins/dns/ctrld/tools/deploy-dev.sh
 ```
 
 Re-run the script (after your own `git pull`) whenever you want to
-redeploy. Test against a spare/VM instance if you have one, not a box your
-LAN's live DNS depends on — the plugin loads and its pages render, but the
-actual DNS-serving behavior (rendered `ctrld.toml`, discovered-clients
-parsing) hasn't been exercised against a live `ctrld` instance yet.
+redeploy. The plugin has been running in production on a real home router
+for a while now (see
+[`dns/ctrld/docs/engineering-notes/incident-postmortems.md`](dns/ctrld/docs/engineering-notes/incident-postmortems.md)
+for the full history of what that's actually surfaced), but it's still
+early — if you're trying this on your own box, a spare/VM instance is
+safer than one your LAN's live DNS depends on.
 
 ## Documentation
 

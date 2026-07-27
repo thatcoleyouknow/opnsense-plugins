@@ -148,31 +148,37 @@ resolver in the next step:
    distinguishable device row in the NextDNS dashboard). Also add a second,
    non-NextDNS upstream to use as a fallback — e.g. Quad9 (`type: dot`,
    endpoint `9.9.9.9`) — for step 4 below.
-3. **Listeners page**: add a row with **Interface: Loopback (127.0.0.1)**,
+3. **Listeners page**: add a row with **Interface: Loopback (127.0.0.1 / ::1)**,
    **Port: 53**. This is a special option this plugin adds specifically for
    this case — it isn't a real assigned interface, so it doesn't show up
    anywhere else in OPNsense.
-4. **Policies page**: add a `cidr` rule matching `127.0.0.1/32` on that
-   listener, routed to the NextDNS upstream from step 2 — this is the only
-   source address that will ever reach a loopback listener, so it acts as a
-   catch-all for it. Optionally set **Fallback upstream** to the Quad9 (or
-   similar) upstream from step 2: `ctrld` then only falls back to it if
-   NextDNS specifically times out or errors, not on every query — NextDNS
-   still handles the normal case.
-4a. **Policies page**: click **Create local-zone delegation policies**
-    again (or by hand, for just this listener). It creates rows for
-    *every* enabled listener, so re-running it after adding the
-    loopback listener also delegates the firewall's own
-    `*.in-addr.arpa`/`internal` lookups to Dnsmasq instead of NextDNS,
-    matching what VLAN listeners already get — otherwise the catch-all rule
-    in step 4 would route those to NextDNS too, which can't answer them.
-5. Apply, then verify before changing anything else:
+4. **Policies page**: add a `cidr` rule matching `0.0.0.0/0` on that
+   listener, routed to the NextDNS upstream from step 2. Use the catch-all
+   `0.0.0.0/0`, not `127.0.0.1/32`, even though loopback-bound traffic
+   might seem like it could only ever come from `127.0.0.1` itself — on a
+   real box the source address ctrld actually sees for these queries
+   didn't reliably match a `/32` (see the loopback-listener postmortem in
+   [`docs/engineering-notes/incident-postmortems.md`](engineering-notes/incident-postmortems.md)
+   for the full investigation); the loopback *bind* itself is already what
+   restricts which traffic can reach this listener at all, so the policy
+   match can safely be wide open. Optionally set **Fallback upstream** to
+   the Quad9 (or similar) upstream from step 2: `ctrld` then only falls
+   back to it if NextDNS specifically times out or errors, not on every
+   query — NextDNS still handles the normal case.
+5. **Policies page**: click **Create local-zone delegation policies**
+   again (or by hand, for just this listener). It creates rows for
+   *every* enabled listener, so re-running it after adding the
+   loopback listener also delegates the firewall's own
+   `*.in-addr.arpa`/`internal` lookups to Dnsmasq instead of NextDNS,
+   matching what VLAN listeners already get — otherwise the catch-all rule
+   in step 4 would route those to NextDNS too, which can't answer them.
+6. Apply, then verify before changing anything else:
 
 ```sh
 dig @127.0.0.1 example.com
 ```
 
-6. Go to **System → Settings → General** and set **DNS servers** to
+7. Go to **System → Settings → General** and set **DNS servers** to
    `127.0.0.1`, **and uncheck "Allow DNS server list to be overridden by
    DHCP/PPP on WAN"** if it's checked (it's OPNsense's default). This isn't
    optional: with it checked, your ISP's own DHCP-assigned DNS servers get

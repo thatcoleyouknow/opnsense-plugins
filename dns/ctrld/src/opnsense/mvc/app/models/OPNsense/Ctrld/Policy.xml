@@ -10,7 +10,6 @@
                     <Required>Y</Required>
                 </enabled>
                 <description type="TextField">
-                    <Required>N</Required>
                     <Mask>/^[^'\r\n]*$/</Mask>
                     <ValidationMessage>Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </description>
@@ -36,9 +35,9 @@
                     <Default>cidr</Default>
                     <Required>Y</Required>
                     <OptionValues>
-                        <cidr>cidr</cidr>
-                        <domain>domain</domain>
-                        <mac>mac</mac>
+                        <cidr>CIDR</cidr>
+                        <domain>Domain</domain>
+                        <mac>MAC Address</mac>
                     </OptionValues>
                 </matchType>
                 <matchValue type="TextField">
@@ -65,7 +64,6 @@
                             <display>name</display>
                         </upstreams>
                     </Model>
-                    <Required>N</Required>
                     <ValidationMessage>Select a different upstream than the one above, or leave blank.</ValidationMessage>
                 </fallbackUpstream>
             </policy>

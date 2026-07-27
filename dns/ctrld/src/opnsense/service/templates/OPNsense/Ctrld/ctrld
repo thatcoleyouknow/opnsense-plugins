@@ -4,5 +4,13 @@
     plugin actually persists ctrld across reboots via the standard OPNsense
     model -> configd -> rc.conf.d pattern, rather than assuming package
     presence implies boot persistence.
+
+    helpers.getNodeByTag(...), not direct OPNsense.ctrld.general.enabled
+    dot-chain access -- same fix, same reason, as ctrld.toml's [service]
+    block (see that file's header comment for the full explanation).
+    Matters even more here: this template is +TARGETS-ordered before
+    ctrld.toml, so on a fresh install (General never saved) an
+    UndefinedError here would fail the whole `template reload` before
+    ctrld.toml even got a chance to render.
 #}
-ctrld_enable="{% if OPNsense.ctrld.general.enabled == '1' %}YES{% else %}NO{% endif %}"
+ctrld_enable="{% if helpers.getNodeByTag('OPNsense.ctrld.general.enabled') == '1' %}YES{% else %}NO{% endif %}"

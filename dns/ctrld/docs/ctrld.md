@@ -187,11 +187,15 @@ usually means ctrld never actually started.
   compare its real output against the parser's assumptions.
 - **The generated `ctrld.toml` matches ctrld's documented config shape**
   (`networks`/`rules` arrays, multi-upstream fallback lists,
-  `failover_rcodes`) verified against ctrld's own `docs/config.md` and by
+  `failover_rcodes`) verified against ctrld's own `docs/config.md`, by
   rendering the template against sample data and parsing the result as
-  TOML -- but no live `ctrld` instance has actually consumed this file yet.
-  Spot-check the rendered config (`/etc/controld/ctrld.toml`) the first
-  time you enable the service.
+  TOML, and (as of the WireGuard-listener incidents documented in
+  [`docs/engineering-notes/incident-postmortems.md`](engineering-notes/incident-postmortems.md))
+  by a live `ctrld` instance actually consuming it in production. Still
+  worth a spot-check of the rendered config
+  (`/var/run/ctrld_active.toml` -- the patched runtime config ctrld
+  actually reads, not the pristine `/etc/controld/ctrld.toml` render) the
+  first time you enable a new listener type.
 - **No DNS Rebinding Protection.** Unbound's `private-address`/
   `private-domain` options have no equivalent in this plugin. If you relied
   on Unbound for this, NextDNS has its own rebinding-protection toggle in
@@ -203,6 +207,13 @@ usually means ctrld never actually started.
   should work, but ctrld's own docs don't show an explicit IPv6 listener
   example to confirm against. Spot-check `/etc/controld/ctrld.toml` and
   that the service actually starts, the first time you use it.
+- **No HA/CARP config sync.** This plugin doesn't register an
+  `ctrld_xmlrpc_sync()`-style hook (the mechanism core services use to
+  push their config to a CARP backup node), so a HA pair won't keep a
+  standby's ctrld configuration in sync automatically. Not a concern for
+  the single-firewall setup this plugin was built and tested against; if
+  you're running HA, replicate `Services > ctrld` settings to the backup
+  node manually after each change.
 
 ## Troubleshooting
 
@@ -221,23 +232,36 @@ same interface/port a listener wants; disable it per the
 [how-to](hybrid-dns-howto.md#8-disable-unbound-optional-cleanup)) rather
 than working around it.
 
-**A listener on a WireGuard/OpenVPN/other dynamic-address interface won't
-start, or one bad listener seems to take every other listener down too.**
-Those interface types don't store their address as a plain config.xml
-field the way a static VLAN does (confirmed by checking a real assigned
-WireGuard interface's `<interfaces>` entry: no `<ipaddr>` at all), so the
-config template alone can't resolve it. `rc.d/ctrld`'s
-`start_precmd`/`reload_precmd` runs
+**A listener on a WireGuard/OpenVPN/DHCP/PPPoE/other dynamic-address
+interface won't start, or one bad listener seems to take every other
+listener down too.** Those interface types don't store a fixed, always-valid
+address the way a static VLAN's `<ipaddr>` does -- some store nothing at
+all (WireGuard, OpenVPN: config.xml has no `<ipaddr>` element, which
+renders as the literal string `ip = 'None'`), others store one of
+`interfaces.inc`'s own placeholder strings instead (`dhcp`, `pppoe`,
+`track6`, `slaac`, `dhcp6`) -- so the config template alone can't resolve
+any of them. `rc.d/ctrld`'s `start_precmd`/`reload_precmd` runs
 `opnsense/scripts/OPNsense/Ctrld/patch_listener_ips.php` immediately before
-ctrld starts, which resolves each such listener's live address via the
-same `get_interface_ip()`/`get_interface_ipv6()` every core OPNsense
-service uses, and — critically — *removes* (rather than starts with an
-invalid address) any listener whose interface has no live address yet,
-so one interface being down can't crash ctrld's single process and take
-every other listener with it. Confirm this ran: `/etc/controld/ctrld.toml`
-should never contain the literal text `ip = 'None'` once ctrld is actually
-running — if it does, the precmd hook didn't fire or failed; check
-`/var/log/messages` for `ctrld: patch_listener_ips.php failed: ...`.
+ctrld starts, which checks each listener's rendered `ip` value with
+`is_ipaddr()` (catching all of the above, not just the literal `'None'`
+case), resolves it via the same `get_interface_ip()`/`get_interface_ipv6()`
+every core OPNsense service uses, and — critically — *removes* (rather than
+starts with an invalid address) any listener whose interface has no live
+address yet, so one interface being down can't crash ctrld's single
+process and take every other listener with it.
+
+This patching happens on a separate runtime file, not the Jinja2-rendered
+one: ctrld actually reads `/var/run/ctrld_active.toml`, which
+`patch_listener_ips.php` regenerates fresh from `/etc/controld/ctrld.toml`
+(the pristine, unpatched render -- inspect this one to see the raw
+placeholder values) on every start/restart/reload, specifically so a plain
+`service ctrld restart` re-attempts resolution too, not just a full Apply.
+To confirm the patch actually ran: `/var/run/ctrld_active.toml` should
+never contain an unresolved placeholder for a listener whose interface is
+actually up -- if it does (or the file's missing entirely), the precmd
+hook didn't fire or failed; check `/var/log/messages` for `ctrld:
+patch_listener_ips.php failed: ...` or `ctrld: listener count mismatch
+...`.
 
 **The firewall itself still seems to be using another DNS server after
 pointing System DNS servers at ctrld's loopback listener.** Check
@@ -247,17 +271,22 @@ DHCP-assigned DNS servers get written into `/etc/resolv.conf` ahead of
 whatever's manually configured. Uncheck it. See the how-to's
 [loopback-listener step](hybrid-dns-howto.md#7-optional-route-the-firewalls-own-dns-through-ctrld-too).
 
-**The service-status widget (top of the page) goes blank/hidden after
-clicking Apply, and doesn't come back without a page refresh.** Check
-**Services → ctrld → Log** first -- if it's empty, ctrld likely never started
-(`/usr/local/bin/ctrld` missing, a malformed `ctrld.toml`, or a port
-conflict) and `/api/ctrld/service/status` is getting back something the
-widget-refresh code doesn't know how to render, leaving it stuck in a
-half-updated state. If Apply itself fails outright, you'll now get an
-error dialog naming the actual problem; the widget going blank with *no*
-dialog specifically points at the status check itself, not the reconfigure
-step. SSH and check `service ctrld status` / `ps aux | grep ctrld`
-directly to confirm whether it's actually running.
+**The service-status widget (top of the page) goes blank/hidden whenever
+ctrld isn't running.** Root cause (found by a later maintainer-level
+review, now fixed): `rc.d/ctrld status` exits 1 when the service is
+stopped -- correct rc.subr behavior -- but configd's `script_output`
+action type runs every command with `check=True` by default, so that
+non-zero exit raised `CalledProcessError`, which configd swallowed into
+the literal string `"Execute error"` instead of ctrld's real status text.
+`statusAction()` didn't recognize that string, so the widget landed in an
+`unknown` state it doesn't know how to render. Fixed by adding `; exit 0`
+to `actions_ctrld.conf`'s `[status]` command (same pattern OPNsense
+core's own `dns/dnscrypt-proxy` plugin already uses), so a stopped ctrld
+now reports its real "not running" status instead of an opaque error. If
+you're still seeing this on an up-to-date checkout, check **Services →
+ctrld → Log** and `service ctrld status` / `ps aux | grep ctrld` directly
+-- something else is likely wrong (ctrld binary missing, malformed
+`ctrld.toml`, a port conflict).
 
 **A newly-added action (e.g. the Log page) returns "Action not allowed or
 missing."** configd (`processhandler.py`'s `ActionHandler.load_config()`)

@@ -72,7 +72,27 @@ function ctrld_configure_do($verbose = false)
     service_log('Configuring ctrld...', $verbose);
 
     $backend = new \OPNsense\Core\Backend();
-    $backend->configdRun('template reload OPNsense/Ctrld');
+    $result = trim($backend->configdRun('template reload OPNsense/Ctrld'));
+
+    // core's own ApiMutableServiceControllerBase::reconfigureAction() (the
+    // interactive Apply-button path) refuses to proceed past a failed
+    // template render, checking for the literal 'OK' marker configd's
+    // template.reload wrapper returns on success -- confirmed against the
+    // real, current core source. This boot/WAN-event path used to skip
+    // that check entirely and restart regardless (matching the real
+    // dnscryptproxy_configure_do() plugin hook, which also doesn't check
+    // it) -- but unlike a one-off interactive Apply click, this path also
+    // runs unattended on every boot and WAN-IP-change event, so a broken
+    // template here has more chances to matter and no user watching to
+    // notice a failure. Restarting ctrld against a template render that
+    // may not have produced a complete/valid ctrld.toml risks the same
+    // "one bad listener takes every listener down" failure class this
+    // whole plugin has already been bitten by twice.
+    if ($result !== 'OK') {
+        syslog(LOG_ERR, "ctrld: template reload failed ({$result}), skipping restart this cycle");
+        service_log("template reload failed, skipping restart.\n", $verbose);
+        return;
+    }
 
     if (ctrld_enabled()) {
         $backend->configdRun('ctrld restart');

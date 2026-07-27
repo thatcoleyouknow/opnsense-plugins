@@ -10,7 +10,6 @@
                     <Required>Y</Required>
                 </enabled>
                 <description type="TextField">
-                    <Required>N</Required>
                     <Mask>/^[^'\r\n]*$/</Mask>
                     <ValidationMessage>Single quotes and line breaks aren't allowed -- this value is written into a TOML config file.</ValidationMessage>
                 </description>
@@ -22,8 +21,8 @@
                     <Default>ipv4</Default>
                     <Required>Y</Required>
                     <OptionValues>
-                        <ipv4>ipv4</ipv4>
-                        <ipv6>ipv6</ipv6>
+                        <ipv4>IPv4</ipv4>
+                        <ipv6>IPv6</ipv6>
                     </OptionValues>
                 </ipVersion>
                 <port type="IntegerField">
