@@ -198,11 +198,30 @@ usually means ctrld never actually started.
   its dashboard's Security settings.
 - **IPv6 listeners are unverified against a live `ctrld` instance.**
   Selecting "IPv6" for a listener's IP version resolves the interface's
-  `ipaddrv6` (or `::1` for Loopback) and passes it straight through as
-  ctrld's listener `ip` value -- this is standard for Go network code and
-  should work, but ctrld's own docs don't show an explicit IPv6 listener
-  example to confirm against. Spot-check `/etc/controld/ctrld.toml` and
-  that the service actually starts, the first time you use it.
+  current IPv6 address (or `::1` for Loopback) and passes it straight
+  through as ctrld's listener `ip` value -- this is standard for Go
+  network code and should work, but ctrld's own docs don't show an
+  explicit IPv6 listener example to confirm against. Spot-check
+  `/etc/controld/ctrld.toml` and that the service actually starts, the
+  first time you use it.
+- **Listener interfaces work for any assigned interface type**, including
+  WireGuard and OpenVPN, not just static VLANs. A listener's bind address
+  is resolved via `get_interface_ip()`/`get_interface_ipv6()` -- the same
+  functions OPNsense core itself uses -- on every reconfigure, in PHP
+  (`ctrld_resolve_listener_ips()` in `plugins.inc.d/ctrld.inc`), not
+  inside the config template itself: the template runs in a separate
+  Python process with no access to live interface state, and plenty of
+  interface types (DHCP, PPPoE, WireGuard, OpenVPN) don't store their
+  address as a plain config.xml field the way a static VLAN does. If a
+  listener's interface can't currently resolve an address (interface
+  down, or a reconfigure hasn't run since it was selected), that one
+  listener is silently skipped rather than failing to start -- ctrld is a
+  single process, so one bad listener previously took every other
+  listener down with it. For OpenVPN specifically: a server instance
+  (`ovpnsN`) has to be assigned as an interface first (Interfaces →
+  Assignments) before it's selectable here at all -- the same requirement
+  any other OPNsense feature has for binding to a VPN interface, not
+  something specific to this plugin.
 
 ## Troubleshooting
 

@@ -94,16 +94,26 @@
 {% for listener in helpers.toList('OPNsense.ctrld.listeners.listeners.listener') %}
 {% if listener.enabled == '1' %}
 {# 'lo0' is a pseudo-interface added by ListenerInterfaceField -- it has no
-   node under interfaces.* to resolve via getNodeByTag, so it's mapped to
-   the literal loopback address here instead. ipVersion picks which family
-   (of the pseudo-interface's two loopback addresses, or of a real
-   interface's ipaddr/ipaddrv6 fields) this listener actually binds. #}
-{% set ip_field = 'ipaddrv6' if listener.ipVersion == 'ipv6' else 'ipaddr' %}
+   node under interfaces.* to resolve, so it's mapped to the literal
+   loopback address here instead. Everything else reads resolvedIp, a
+   field populated in PHP (plugins.inc.d/ctrld.inc's
+   ctrld_resolve_listener_ips(), via get_interface_ip()/
+   get_interface_ipv6()) on every reconfigure, before this template
+   renders -- not looked up here, since this template runs in a separate
+   Python process with no access to live interface state, and plenty of
+   interface types (DHCP, PPPoE, WireGuard, OpenVPN) don't store their
+   address as a static interfaces.<if>.ipaddr config.xml field at all. #}
 {% if listener.interface == 'lo0' %}
 {% set listener_ip = '::1' if listener.ipVersion == 'ipv6' else '127.0.0.1' %}
 {% else %}
-{% set listener_ip = helpers.getNodeByTag('interfaces.' ~ listener.interface ~ '.' ~ ip_field) %}
+{% set listener_ip = listener.resolvedIp %}
 {% endif %}
+{# Skip (not fatal-error) a listener whose IP never resolved -- e.g. an
+   interface that's down, or hasn't had a reconfigure run since being
+   selected -- rather than write an invalid empty ip = '' that would
+   crash ctrld's single process and take every other listener down with
+   it. #}
+{% if listener_ip %}
   [listener.{{ ns3.l_idx }}]
     ip = '{{ listener_ip }}'
     port = {{ listener.port }}
@@ -137,6 +147,7 @@
 {% endfor %}
       ]
 {% set ns3.l_idx = ns3.l_idx + 1 %}
+{% endif %}
 {% endif %}
 {% endfor %}
 {% endif %}

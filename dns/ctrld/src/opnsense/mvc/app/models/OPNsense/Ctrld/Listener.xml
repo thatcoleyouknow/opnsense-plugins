@@ -33,6 +33,17 @@
                     <MaximumValue>65535</MaximumValue>
                     <ValidationMessage>Choose a port between 1 and 65535.</ValidationMessage>
                 </port>
+                <!-- Computed, not user-facing (no form field for it). Refreshed
+                     by ctrld_resolve_listener_ips() in plugins.inc.d/ctrld.inc
+                     on every reconfigure via get_interface_ip()/
+                     get_interface_ipv6(): the ctrld.toml Jinja2 template
+                     runs in a separate Python process with no access to live
+                     interface state, so an interface whose address isn't a
+                     static config.xml field (DHCP, PPPoE, WireGuard,
+                     OpenVPN) has to be resolved here in PHP first. -->
+                <resolvedIp type="TextField">
+                    <Required>N</Required>
+                </resolvedIp>
             </listener>
         </listeners>
     </items>
