@@ -60,8 +60,22 @@
  * core OPNsense service already relies on for this exact problem.
  */
 
+// interfaces.inc's own functions (get_interface_ip() included) call
+// into other legacy .inc files (is_ipaddrv4() etc. from util.inc, at
+// minimum) without requiring them itself -- confirmed the hard way: the
+// first deployed version of this script only required config.inc +
+// interfaces.inc and fataled on a live box with "Call to undefined
+// function is_ipaddrv4()" the moment it tried to actually resolve
+// WireGuard's interface. Rather than guess at exactly which functions
+// are transitively needed and risk finding a third missing one on the
+// next test, this matches the real require list OPNsense core's own
+// src/opnsense/scripts/shell/setaddr.php uses -- a real, confirmed CLI
+// script that also calls get_interface_ip() directly, standalone.
 require_once 'config.inc';
 require_once 'interfaces.inc';
+require_once 'util.inc';
+require_once 'filter.inc';
+require_once 'system.inc';
 
 const CTRLD_TOML_PATH = '/etc/controld/ctrld.toml';
 
