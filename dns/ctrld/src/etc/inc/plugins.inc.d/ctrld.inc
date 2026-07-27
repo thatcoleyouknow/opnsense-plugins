@@ -71,8 +71,6 @@ function ctrld_configure_do($verbose = false)
 {
     service_log('Configuring ctrld...', $verbose);
 
-    ctrld_resolve_listener_ips();
-
     $backend = new \OPNsense\Core\Backend();
     $backend->configdRun('template reload OPNsense/Ctrld');
 
@@ -83,57 +81,4 @@ function ctrld_configure_do($verbose = false)
     }
 
     service_log('done.' . "\n", $verbose);
-}
-
-/**
- * Resolve each listener's bound IP from its selected interface and persist
- * it into the model, using OPNsense's own get_interface_ip()/
- * get_interface_ipv6() -- the same functions every core service (Unbound,
- * DHCP, etc.) relies on to correctly handle interfaces whose address isn't
- * a static config.xml field: DHCP, PPPoE, WireGuard, OpenVPN, etc. all
- * store nothing under interfaces.<if>.ipaddr, so a plain config.xml lookup
- * returns nothing for them.
- *
- * This has to happen here, in PHP, before the config template renders --
- * not inside the ctrld.toml Jinja2 template itself. Confirmed against
- * OPNsense core's own template_helpers.py: every helper available there
- * (getNodeByTag, physical_interface, etc.) only reads static config.xml
- * data, with no live interface-state query at all, and template.py's
- * Template class takes its data exclusively from set_config() -- there's
- * no hook for a plugin to inject additional computed data into that
- * pipeline. Persisting the resolved value into the model is the only way
- * to make it available where the template can read it.
- *
- * Skips 'lo0': that's a pseudo-interface ListenerInterfaceField adds with
- * no real assigned-interface entry to resolve -- the template already
- * special-cases it to the literal loopback address.
- */
-function ctrld_resolve_listener_ips()
-{
-    require_once 'interfaces.inc';
-
-    $model = new \OPNsense\Ctrld\Listener();
-    $changed = false;
-
-    foreach ($model->listeners->listener->iterateItems() as $listener) {
-        $interface = (string)$listener->interface;
-        if ($interface === '' || $interface === 'lo0') {
-            continue;
-        }
-
-        $resolved = (string)$listener->ipVersion === 'ipv6'
-            ? get_interface_ipv6($interface)
-            : get_interface_ip($interface);
-        $resolved = (string)($resolved ?? '');
-
-        if ((string)$listener->resolvedIp !== $resolved) {
-            $listener->resolvedIp = $resolved;
-            $changed = true;
-        }
-    }
-
-    if ($changed) {
-        $model->serializeToConfig();
-        \OPNsense\Core\Config::getInstance()->save();
-    }
 }
