@@ -47,6 +47,11 @@ parsing) hasn't been exercised against a live `ctrld` instance yet.
 - [`dns/ctrld/docs/hybrid-dns-howto.md`](dns/ctrld/docs/hybrid-dns-howto.md)
   — step-by-step guide to actually configuring a combined
   Dnsmasq + ctrld/NextDNS setup, the reason this plugin exists.
+- [`dns/ctrld/docs/engineering-notes/`](dns/ctrld/docs/engineering-notes/)
+  — for the plugin's own author/maintainer, not a user: why the code looks
+  the way it does, the framework/tooling gotchas discovered building it,
+  and full postmortems of the real debugging sessions (the two-act
+  WireGuard listener saga, the browser-DNS-bypass investigation, and more).
 
 ## Known prerequisite before a real upstream PR
 
