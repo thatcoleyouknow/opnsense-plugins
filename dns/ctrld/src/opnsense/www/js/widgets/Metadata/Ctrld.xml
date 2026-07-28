@@ -7,6 +7,7 @@
             <endpoint>/api/ctrld/general/get</endpoint>
         </endpoints>
         <translations>
+            <title>ctrld Clients</title>
             <not_available>Not available</not_available>
             <service_not_running>is not running.</service_not_running>
             <click_here_to_configure>Click here to configure</click_here_to_configure>
