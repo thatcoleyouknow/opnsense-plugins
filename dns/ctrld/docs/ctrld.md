@@ -273,14 +273,17 @@ address yet, so one interface being down can't crash ctrld's single
 process and take every other listener with it.
 
 This patching happens on a separate runtime file, not the Jinja2-rendered
-one: ctrld actually reads `/var/run/ctrld_active.toml`, which
+one: ctrld actually reads `/etc/controld/ctrld_active.toml`, which
 `patch_listener_ips.php` regenerates fresh from `/etc/controld/ctrld.toml`
 (the pristine, unpatched render -- inspect this one to see the raw
 placeholder values) on every start/restart/reload, specifically so a plain
 `service ctrld restart` re-attempts resolution too, not just a full Apply.
-To confirm the patch actually ran: `/var/run/ctrld_active.toml` should
-never contain an unresolved placeholder for a listener whose interface is
-actually up -- if it does (or the file's missing entirely), the precmd
+Deliberately not under `/var/run` -- that's cleared on every boot, which
+would leave ctrld with no config at all after a reboot rather than the
+last known-good one. To confirm the patch actually ran:
+`/etc/controld/ctrld_active.toml` should never contain an unresolved
+placeholder for a listener whose interface is actually up -- if it does
+(or the file's missing entirely), the precmd
 hook didn't fire or failed; check `/var/log/messages` for `ctrld:
 patch_listener_ips.php failed: ...` or `ctrld: listener count mismatch
 ...`.
