@@ -193,9 +193,21 @@ usually means ctrld never actually started.
   [`docs/engineering-notes/incident-postmortems.md`](engineering-notes/incident-postmortems.md))
   by a live `ctrld` instance actually consuming it in production. Still
   worth a spot-check of the rendered config
-  (`/var/run/ctrld_active.toml` -- the patched runtime config ctrld
+  (`/etc/controld/ctrld_active.toml` -- the patched runtime config ctrld
   actually reads, not the pristine `/etc/controld/ctrld.toml` render) the
   first time you enable a new listener type.
+- **No log rotation.** `/var/log/ctrld.log` grows unbounded -- ctrld opens
+  it once at startup and holds that file handle for the life of the
+  process, with no built-in size-based rotation and no signal it responds
+  to that would make it reopen the file (confirmed by reading ctrld's own
+  Go source; see the gotcha in
+  [`docs/engineering-notes/gotchas.md`](engineering-notes/gotchas.md) for
+  the full investigation). An external `newsyslog.conf` entry was tried
+  and reverted for this exact reason -- rotating the file out from under
+  ctrld's open handle just blanks the Log File page and doesn't even
+  reclaim the disk space until ctrld happens to restart on its own. Until
+  this has a real fix, keep an eye on `/var/log/ctrld.log`'s size
+  yourself, especially at `debug` log level.
 - **No DNS Rebinding Protection.** Unbound's `private-address`/
   `private-domain` options have no equivalent in this plugin. If you relied
   on Unbound for this, NextDNS has its own rebinding-protection toggle in
