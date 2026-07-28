@@ -274,6 +274,27 @@ This is why `patch_listener_ips.php` *removes* an unresolvable listener's
 block entirely rather than leaving any kind of placeholder in it — see the
 listener-IP-resolution architecture decision.
 
+**ctrld never reopens its log file — no signal-based rotation is possible,
+only a full process restart.** Confirmed by reading ctrld's own real Go
+source: `cmd/cli/main.go`'s `initLoggingWithBackup()` opens `LogPath` once
+via a plain `os.OpenFile(..., os.O_CREATE|os.O_RDWR|os.O_APPEND)` and keeps
+that handle for the life of the process; the only signal ctrld listens for
+(`cmd/cli/reload_others.go`'s `SIGUSR1`, wired to this plugin's own
+`[reload]` action) triggers `prog.go`'s `runWait()` reload loop, which
+re-reads the *DNS config* file, not the log file -- there's no lumberjack
+or similar rotation library in play either. This means an external
+`newsyslog.conf` entry using flag `N` ("no process needs signaling") --
+the approach this plugin briefly shipped and then reverted -- silently
+breaks: newsyslog renames/gzips `ctrld.log` out from under ctrld's still-open
+file descriptor, the Log File page goes permanently blank, and the disk
+space isn't actually reclaimed until ctrld happens to restart on its own.
+Log rotation for this plugin is an open problem, not a solved one -- any
+real fix needs either a full `service ctrld restart` triggered by
+newsyslog's `R` flag (a genuine service blip, once per rotation, worth
+weighing against how bad unbounded log growth actually is in practice) or
+confirmation from a future ctrld release that it gained a reopen-on-signal
+mode.
+
 **The DHCP lease file ctrld should watch isn't discoverable automatically
 on OPNsense.** ctrld's own "common file locations" client-discovery
 auto-detection has no OPNsense-specific knowledge, so `dhcp_lease_file_path`/

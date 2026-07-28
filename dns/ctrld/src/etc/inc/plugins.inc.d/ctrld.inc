@@ -88,6 +88,18 @@ function ctrld_configure_do($verbose = false)
     // may not have produced a complete/valid ctrld.toml risks the same
     // "one bad listener takes every listener down" failure class this
     // whole plugin has already been bitten by twice.
+    //
+    // A single retry on an EMPTY result specifically: Backend::configdRun()
+    // also returns '' on a socket timeout or if configd is momentarily
+    // unreachable -- indistinguishable from "got a response and it wasn't
+    // OK" by string comparison alone, but a genuinely different, often
+    // transient condition (this runs at boot, when configd itself may
+    // still be starting up). One immediate retry costs nothing when
+    // configd is actually fine, and turns a boot-timing race into a
+    // successful restart instead of a silently-skipped one.
+    if ($result === '') {
+        $result = trim($backend->configdRun('template reload OPNsense/Ctrld'));
+    }
     if ($result !== 'OK') {
         syslog(LOG_ERR, "ctrld: template reload failed ({$result}), skipping restart this cycle");
         service_log("template reload failed, skipping restart.\n", $verbose);

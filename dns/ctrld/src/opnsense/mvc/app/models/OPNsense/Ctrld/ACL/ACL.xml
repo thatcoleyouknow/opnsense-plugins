@@ -1,21 +1,35 @@
 <acl>
     <!--
-        Split following the real precedent set by OPNsense core's own
-        Dnsmasq plugin ACL.xml, which separates its Settings page from its
-        Log File page under two different privileges rather than one
-        wildcard covering the whole plugin. Extended here to a third split
-        (Discovered Clients) beyond Dnsmasq's own two, since this plugin
-        specifically has a third page (client/hostname discovery) whose
-        access shouldn't require the same grant as rewriting DNS routing
-        policy for every VLAN either.
+        Split following the spirit of OPNsense core's own Dnsmasq
+        ACL.xml, which grants its own module-wide access
+        (ui/dnsmasq/*, api/dnsmasq/*) separately from
+        ui/diagnostics/log/core/dnsmasq/* + api/diagnostics/log/core/dnsmasq/*.
+        Note that Dnsmasq's second entry is actually core's shared
+        diagnostics log viewer, not a second privilege carved out of its
+        own module, since Dnsmasq logs through syslog rather than shipping
+        its own log page the way this plugin does. The pattern this file
+        actually follows (more than one privilege scoped to different
+        pages of the *same* plugin) doesn't have an exact match elsewhere
+        in core/plugins as of this writing, but the underlying principle
+        (viewing discovered clients or the log file shouldn't require the
+        same grant as rewriting DNS routing policy for every VLAN) still
+        holds on its own merits.
+
+        Each ui/ctrld/X pattern ends in /* (not a bare path) so a trailing
+        slash still matches. ACL.php's urlMatch() anchors bare patterns
+        exactly (^/ui/ctrld/general$, no trailing-slash tolerance), and
+        the original pre-split ui/ctrld/* wildcard here was tolerant of
+        that; narrowing per-page without the /* suffix would have been a
+        real, easy-to-miss access regression for anyone who reaches these
+        pages with a trailing slash.
     -->
     <page-ctrld-config>
         <name>Services: ctrld: Settings</name>
         <patterns>
-            <pattern>ui/ctrld/general</pattern>
-            <pattern>ui/ctrld/listeners</pattern>
-            <pattern>ui/ctrld/upstreams</pattern>
-            <pattern>ui/ctrld/policies</pattern>
+            <pattern>ui/ctrld/general/*</pattern>
+            <pattern>ui/ctrld/listeners/*</pattern>
+            <pattern>ui/ctrld/upstreams/*</pattern>
+            <pattern>ui/ctrld/policies/*</pattern>
             <pattern>api/ctrld/general/*</pattern>
             <pattern>api/ctrld/listener/*</pattern>
             <pattern>api/ctrld/listeners/*</pattern>
@@ -29,7 +43,7 @@
     <page-ctrld-clients>
         <name>Services: ctrld: Discovered Clients</name>
         <patterns>
-            <pattern>ui/ctrld/clients</pattern>
+            <pattern>ui/ctrld/clients/*</pattern>
             <pattern>api/ctrld/clients/*</pattern>
             <!--
                 Just this one specific read-only endpoint, not the
@@ -46,7 +60,7 @@
     <page-ctrld-log>
         <name>Services: ctrld: Log File</name>
         <patterns>
-            <pattern>ui/ctrld/log</pattern>
+            <pattern>ui/ctrld/log/*</pattern>
             <pattern>api/ctrld/log/*</pattern>
         </patterns>
     </page-ctrld-log>

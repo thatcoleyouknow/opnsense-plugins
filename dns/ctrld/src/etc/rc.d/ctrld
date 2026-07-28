@@ -26,13 +26,18 @@ rcvar="ctrld_enable"
 load_rc_config $name
 
 : ${ctrld_enable:="NO"}
-# /var/run/ctrld_active.toml, not the Jinja2-rendered /etc/controld/ctrld.toml
-# directly -- ctrld_prestart's patch_listener_ips.php reads the latter but
-# writes its resolved-listener-IP output to this separate runtime path,
-# so that a plain restart (which doesn't re-render the template) still
-# gets a fresh interface-IP resolution attempt every time. See that
-# script's own header comment for the full reasoning.
-: ${ctrld_config:="/var/run/ctrld_active.toml"}
+# /etc/controld/ctrld_active.toml, not the Jinja2-rendered
+# /etc/controld/ctrld.toml directly -- ctrld_prestart's
+# patch_listener_ips.php reads the latter but writes its
+# resolved-listener-IP output to this separate runtime path, so that a
+# plain restart (which doesn't re-render the template) still gets a fresh
+# interface-IP resolution attempt every time. See that script's own
+# header comment for the full reasoning. Deliberately NOT under /var/run:
+# that's cleared on every boot, which would turn every one of the patch
+# script's own failure/bail-out paths into "no config at all" instead of
+# "start with the last known-good config" -- the exact failure class this
+# whole plugin has already caused two real outages from.
+: ${ctrld_config:="/etc/controld/ctrld_active.toml"}
 : ${ctrld_bin:="/usr/local/bin/ctrld"}
 : ${ctrld_pidfile:="/var/run/ctrld.pid"}
 : ${ctrld_supervisor_pidfile:="/var/run/ctrld_supervisor.pid"}

@@ -65,7 +65,7 @@
  *
  * Reads the Jinja2-rendered /etc/controld/ctrld.toml (PRISTINE_TOML_PATH)
  * but never modifies it -- writes the patched result to a separate
- * /var/run/ctrld_active.toml (ACTIVE_TOML_PATH), which is what
+ * /etc/controld/ctrld_active.toml (ACTIVE_TOML_PATH), which is what
  * rc.d/ctrld's ctrld_config actually points `ctrld run --config` at. This
  * split exists because `service ctrld restart` is a real, supported path
  * that does NOT re-render the template first -- with the earlier
@@ -78,6 +78,17 @@
  * the real current model state and gets a fresh resolution attempt, and
  * makes it safe to run this script repeatedly without accumulating drift
  * from patching an already-patched file.
+ *
+ * ACTIVE_TOML_PATH deliberately lives under /etc/controld, NOT /var/run:
+ * an earlier version of this file used /var/run/ctrld_active.toml, which
+ * is wrong -- /var/run is cleared on every boot (tmpfs on some configs,
+ * wiped by rc.d's own cleanvar on all of them), so the active config
+ * would start every single boot completely absent, not stale-but-valid,
+ * turning every one of this script's own bail-out/failure paths (missing
+ * pristine render, count mismatch, a caught exception, a failed write)
+ * into "ctrld has no config to start with at all" rather than "ctrld
+ * starts with what it had before." Persistent storage means those same
+ * failure paths degrade to the intended stale-but-valid fallback instead.
  *
  * get_interface_ip()/get_interface_ipv6() are the same functions every
  * core OPNsense service already relies on for this exact problem.
@@ -101,7 +112,7 @@ require_once 'filter.inc';
 require_once 'system.inc';
 
 const PRISTINE_TOML_PATH = '/etc/controld/ctrld.toml';
-const ACTIVE_TOML_PATH = '/var/run/ctrld_active.toml';
+const ACTIVE_TOML_PATH = '/etc/controld/ctrld_active.toml';
 
 // Real ident/PID on every syslog() call below, instead of relying on
 // each message's own "ctrld: " string prefix and whatever default ident
@@ -119,8 +130,15 @@ openlog('ctrld', LOG_PID, LOG_DAEMON);
 function ctrld_write_active_toml($contents)
 {
     $tmpPath = ACTIVE_TOML_PATH . '.tmp.' . getmypid();
-    if (@file_put_contents($tmpPath, $contents) === false) {
-        syslog(LOG_ERR, "ctrld: failed to write {$tmpPath}");
+    // file_put_contents() returns the byte count written, not false, on a
+    // short write (e.g. disk full) -- checking only "=== false" misses
+    // exactly the truncated-write case this function's own docblock above
+    // says it guards against. Comparing against the intended length
+    // catches both a hard failure (false) and a partial one.
+    $written = @file_put_contents($tmpPath, $contents);
+    if ($written === false || $written !== strlen($contents)) {
+        syslog(LOG_ERR, "ctrld: failed to write {$tmpPath} (wrote " . var_export($written, true) . ' of ' . strlen($contents) . ' bytes)');
+        @unlink($tmpPath);
         return false;
     }
     // 0600: this file (like the pristine render it's derived from)
@@ -196,14 +214,22 @@ function ctrld_patch_listener_ips()
     // guess at a mapping that might be wrong; ACTIVE_TOML_PATH is left
     // exactly as it was (a stale-but-valid config from the last good
     // cycle, or simply absent on a first-ever run).
+    // Start at $parts[1], not $parts[0]: $parts[0] holds everything before
+    // the first [listener.N] header, including the [network]/[upstream]
+    // sections -- whose [network.N] blocks render each Policy's own
+    // `name = '<description>'` verbatim. A Policy description containing
+    // literal text like "[listener.0]" (Policy.xml's Mask permits
+    // brackets/digits) would otherwise inflate this count by one and trip
+    // the mismatch bail-out below for a reason that has nothing to do
+    // with an actual listener/model disagreement.
     $blockCount = 0;
-    foreach ($parts as $part) {
-        if (preg_match('/\[listener\.\d+\]/', $part)) {
+    for ($i = 1; $i < count($parts); $i++) {
+        if (preg_match('/\[listener\.\d+\]/', $parts[$i])) {
             $blockCount++;
         }
     }
     if ($blockCount !== count($listeners)) {
-        syslog(LOG_ERR, "ctrld: listener count mismatch (template rendered {$blockCount}, model reports " . count($listeners) . ' enabled), leaving active config unpatched this cycle');
+        syslog(LOG_CRIT, "ctrld: listener count mismatch (template rendered {$blockCount}, model reports " . count($listeners) . ' enabled), leaving active config unpatched this cycle');
         return;
     }
 
