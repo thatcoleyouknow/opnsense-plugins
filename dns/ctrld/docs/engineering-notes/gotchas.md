@@ -319,6 +319,32 @@ seconds of DNS interruption across every VLAN -- on every rotation,
 potentially more than once a day under sustained `debug`-level logging if
 a size trigger is used).
 
+**ctrld's Discovered Clients list never forgets a client, even after its
+DHCP lease genuinely expires.** Confirmed by reading
+`internal/clientinfo/dhcp.go`'s `dnsmasqReadClientInfoReader()`: every
+re-read of the lease file (triggered by an `fsnotify` write event, or the
+initial read at startup) only calls `.Store()` on the mac/ip/hostname it
+finds -- there's no corresponding `.Delete()` for an entry whose line
+disappeared from the file. `internal/clientinfo/arp.go`'s `scan()` (which
+shells out to `arp -an`) has the identical store-only pattern. So once
+ctrld has ever seen a given IP/MAC via either source, it stays in ctrld's
+in-memory client table forever, regardless of what the underlying lease
+file or the OS's live ARP cache says later -- only a full ctrld restart
+clears it (`client_info.go`'s `init()` rebuilds these tables fresh from
+whatever's *currently* present at that moment). This is why the
+`Discovered` column in `ctrld clients list` can show `dhcp` alone for a
+client whose lease dnsmasq has already expired and removed from its own
+active-lease view: that device has a stale, phantom entry in ctrld's
+memory, and never generated traffic that put it in the firewall's own ARP
+cache in the first place (an `arp,dhcp` entry means both a lease *and*
+real observed L2 traffic). Not something fixable from this plugin's side
+-- `ClientsController::searchAction()` just parses `ctrld clients list`'s
+output as-is -- but harmless in practice: nothing in this plugin's actual
+DNS routing reads from this table (Policy rules match explicitly
+configured CIDR/domain/MAC, not against discovered clients), and the
+table gets naturally reset by the same restart-triggered rotation this
+plugin already relies on for `ctrld.log` (see the entry above).
+
 **The DHCP lease file ctrld should watch isn't discoverable automatically
 on OPNsense.** ctrld's own "common file locations" client-discovery
 auto-detection has no OPNsense-specific knowledge, so `dhcp_lease_file_path`/
