@@ -196,18 +196,28 @@ usually means ctrld never actually started.
   (`/etc/controld/ctrld_active.toml` -- the patched runtime config ctrld
   actually reads, not the pristine `/etc/controld/ctrld.toml` render) the
   first time you enable a new listener type.
-- **No log rotation.** `/var/log/ctrld.log` grows unbounded -- ctrld opens
-  it once at startup and holds that file handle for the life of the
-  process, with no built-in size-based rotation and no signal it responds
-  to that would make it reopen the file (confirmed by reading ctrld's own
-  Go source; see the gotcha in
+- **Log rotation only happens on restart, not on a schedule or size
+  limit.** ctrld opens `/var/log/ctrld.log` once at startup and holds
+  that file handle for the life of the process -- it has no built-in
+  size-based rotation, and doesn't respond to any signal that would make
+  it reopen the file (confirmed by reading ctrld's own Go source). What
+  it *does* have: every time it starts (`service ctrld restart`, a
+  reboot, or `daemon -r` respawning it after a crash), it backs up
+  whatever was in `ctrld.log` to `ctrld.log.1` (overwriting any previous
+  `.1`) before starting a fresh, empty log -- so a restart is a real,
+  working rotation, just an unscheduled one with a single generation of
+  history. An external `newsyslog.conf` entry that renames/compresses the
+  file out from under ctrld's open handle without also restarting ctrld
+  was tried and reverted -- that just blanks the Log File page, since
+  ctrld keeps writing into the now-unlinked file instead of the new one.
+  See the gotcha in
   [`docs/engineering-notes/gotchas.md`](engineering-notes/gotchas.md) for
-  the full investigation). An external `newsyslog.conf` entry was tried
-  and reverted for this exact reason -- rotating the file out from under
-  ctrld's open handle just blanks the Log File page and doesn't even
-  reclaim the disk space until ctrld happens to restart on its own. Until
-  this has a real fix, keep an eye on `/var/log/ctrld.log`'s size
-  yourself, especially at `debug` log level.
+  the full investigation, including the newsyslog `R`-flag approach
+  (rotate, then restart ctrld to reopen) that would give this a real
+  size/schedule trigger, not yet implemented. Until then, size is only
+  ever bounded by how often the service happens to restart -- keep an eye
+  on `/var/log/ctrld.log` if you run at `debug` level for an extended
+  stretch without restarting.
 - **No DNS Rebinding Protection.** Unbound's `private-address`/
   `private-domain` options have no equivalent in this plugin. If you relied
   on Unbound for this, NextDNS has its own rebinding-protection toggle in

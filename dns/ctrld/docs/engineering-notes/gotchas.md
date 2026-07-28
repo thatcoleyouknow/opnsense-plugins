@@ -274,26 +274,50 @@ This is why `patch_listener_ips.php` *removes* an unresolvable listener's
 block entirely rather than leaving any kind of placeholder in it — see the
 listener-IP-resolution architecture decision.
 
-**ctrld never reopens its log file — no signal-based rotation is possible,
-only a full process restart.** Confirmed by reading ctrld's own real Go
-source: `cmd/cli/main.go`'s `initLoggingWithBackup()` opens `LogPath` once
-via a plain `os.OpenFile(..., os.O_CREATE|os.O_RDWR|os.O_APPEND)` and keeps
-that handle for the life of the process; the only signal ctrld listens for
+**ctrld never reopens its log file on a signal — only a full process
+restart triggers rotation, and that rotation is real.** Confirmed by
+reading ctrld's own real Go source: `cmd/cli/main.go`'s
+`initLoggingWithBackup()` opens `LogPath` once via a plain
+`os.OpenFile(..., os.O_CREATE|os.O_RDWR|os.O_APPEND)` and keeps that
+handle for the life of the process; the only signal ctrld listens for
 (`cmd/cli/reload_others.go`'s `SIGUSR1`, wired to this plugin's own
 `[reload]` action) triggers `prog.go`'s `runWait()` reload loop, which
 re-reads the *DNS config* file, not the log file -- there's no lumberjack
-or similar rotation library in play either. This means an external
-`newsyslog.conf` entry using flag `N` ("no process needs signaling") --
-the approach this plugin briefly shipped and then reverted -- silently
-breaks: newsyslog renames/gzips `ctrld.log` out from under ctrld's still-open
-file descriptor, the Log File page goes permanently blank, and the disk
-space isn't actually reclaimed until ctrld happens to restart on its own.
-Log rotation for this plugin is an open problem, not a solved one -- any
-real fix needs either a full `service ctrld restart` triggered by
-newsyslog's `R` flag (a genuine service blip, once per rotation, worth
-weighing against how bad unbounded log growth actually is in practice) or
-confirmation from a future ctrld release that it gained a reopen-on-signal
-mode.
+or similar rotation library in play either. **But** `cmd/cli/cli.go`'s
+`run()` -- the function `ctrld run` (what `rc.d/ctrld` actually invokes)
+executes -- calls `p.initLogging(true)`, and that `true` means
+`initLoggingWithBackup()` renames whatever's currently at `LogPath` to
+`LogPath + ".1"` (silently overwriting any previous `.1`) before opening
+a fresh, truncated log file. So **every** `service ctrld restart`, every
+reboot, and every crash-respawn under `daemon -r` already does a real,
+working, single-generation rotation, entirely inside ctrld itself, with
+zero code from this plugin. Confirmed against GitHub issue
+[Control-D-Inc/ctrld#156](https://github.com/Control-D-Inc/ctrld/issues/156)
+("Feature request - log file management options") that this is the only
+rotation ctrld has ever shipped -- the issue is closed as "completed" but
+the sole maintainer comment (2024-05-31) just says to use third-party
+tooling; nothing was actually added on top of this restart-triggered
+backup.
+
+The gap this leaves: rotation only happens *when* something restarts
+ctrld, never on a schedule or size threshold, and only one generation of
+history is ever kept. An external `newsyslog.conf` entry using flag `N`
+("no process needs signaling") -- the approach this plugin briefly
+shipped and then reverted -- silently breaks, because it renames/gzips
+`ctrld.log` out from under ctrld's still-open file descriptor *without*
+also restarting ctrld: the Log File page goes permanently blank, since
+ctrld keeps writing into the now-unlinked inode instead of the file that
+now exists at that path. A real scheduled/size-triggered fix needs
+newsyslog's `R` flag instead of `N` -- `R` runs a command (here, a
+wrapper script doing `service ctrld restart`) *after* its own
+rename/compress step, rather than sending a signal, which lines up
+exactly with what ctrld needs. Not yet implemented: would need the exact
+`R`-flag field syntax re-verified against the real `newsyslog.conf(5)`
+man page, a render test, and an explicit decision on trigger
+size/schedule given the real cost (a brief `ctrld` restart -- a few
+seconds of DNS interruption across every VLAN -- on every rotation,
+potentially more than once a day under sustained `debug`-level logging if
+a size trigger is used).
 
 **The DHCP lease file ctrld should watch isn't discoverable automatically
 on OPNsense.** ctrld's own "common file locations" client-discovery
