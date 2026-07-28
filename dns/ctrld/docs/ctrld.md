@@ -247,6 +247,23 @@ manual file sync doesn't. Run `/usr/local/etc/rc.configure_plugins` (or wait
 out the hour) after copying files — `dns/ctrld/tools/deploy-dev.sh` already
 does this for you.
 
+**Discovered Clients shows devices that don't match anything on your
+network, and restarting ctrld doesn't clear them.** ctrld's client
+discovery doesn't only watch the lease file this plugin configures
+(`dhcp_lease_file_path` in Settings) -- it also unconditionally tries
+roughly a dozen more hardcoded, platform-specific lease-file paths
+(OpenWrt, Merlin, UDM/UDR, Synology, Tomato, EdgeOS, Firewalla, plus
+OPNsense/pfSense's own legacy ISC `dhcpd` and Kea paths), silently
+ignoring whichever don't exist. If this box ever ran a different DHCP
+server before settling on the one it uses now, a leftover, real (not
+empty) lease file at one of those other paths gets picked up too --
+and re-read fresh on every restart, which is why restarting doesn't help.
+Check for stale lease files at (among others)
+`/var/dhcpd/var/db/dhcpd.leases` (ISC `dhcpd`) and
+`/var/lib/kea/dhcp4.leases` (Kea) -- if one has real, unexpected content,
+confirm that DHCP server isn't actually in use (`service dhcpd status` or
+equivalent) and move the stale file aside.
+
 **Config validation flags a listener as conflicting with Unbound/Dnsmasq.**
 This is a live check against those services' own config models — resolve
 the actual conflict (usually: Unbound is still enabled and bound to the

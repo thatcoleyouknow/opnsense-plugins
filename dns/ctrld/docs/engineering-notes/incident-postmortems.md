@@ -361,3 +361,54 @@ untestable locally, the mitigation isn't "test harder" — it's "verify
 against a *real, confirmed* example doing the exact same thing," which is
 what actually worked here, twice: once as a near-miss (the earlier caution
 around `gen_subnet()`), and once for real, live, after the fact.
+
+## Phantom clients from a stale ISC dhcpd lease file, immune to restarts
+
+**Symptom:** the Discovered Clients page showed devices that "shouldn't
+have come from anywhere" — hostnames/MACs not recognized as anything on
+the network. Restarting `ctrld` about a dozen times over an hour didn't
+clear them, which ruled out the obvious first theory (accumulated
+in-memory client-table cruft — see the `gotchas.md` entry on ctrld never
+expiring a discovered client) up front: an in-memory-only problem would
+have been reset by any one of those restarts.
+
+**Investigation:** reading ctrld's real Go source
+(`internal/clientinfo/dhcp_lease_files.go`) showed `discover_dhcp`
+doesn't only watch the single `dhcp_lease_file_path` this plugin's
+`ctrld.toml` template sets — its `init()` unconditionally tries roughly a
+dozen more hardcoded, platform-specific lease-file paths too (OpenWrt,
+Merlin, UDM/UDR, Synology, Tomato, EdgeOS, Firewalla, and two OPNsense/
+pfSense-family ones: ISC `dhcpd`'s and Kea's), silently ignoring whichever
+don't exist. Checking all of them on the live box turned up
+`/var/dhcpd/var/db/dhcpd.leases` — real content, 1829 bytes, owned by
+`dhcpd:dhcpd`, `mtime` over a month old. `cat`ing it confirmed its
+MAC/hostname entries matched the phantom clients exactly.
+
+**Root cause:** this box's DHCP has been Dnsmasq for this whole project
+(see the `dhcp_lease_file_path` postmortem above), but OPNsense's legacy
+built-in ISC `dhcpd` had apparently run at some earlier point and left a
+real lease file behind — note that same earlier postmortem's own
+investigation found this exact path "stale/empty" at the time, so
+whatever wrote real content into it did so sometime *after* that
+investigation, not before. `service dhcpd status` confirmed the `dhcpd`
+binary doesn't even exist on this box anymore ("does not exist in
+`/etc/rc.d`... or is not executable") — fully dead, not a currently
+misconfigured second DHCP server. ctrld's own client tables are
+append-only per source and never diffed against a shrinking/disappearing
+file (see the `gotchas.md` entry), so every restart re-ingested the exact
+same stale entries fresh, explaining why restarting a dozen times did
+nothing.
+
+**Fix:** `mv`d the stale lease file aside (not deleted, in case the
+diagnosis was somehow wrong) and restarted `ctrld` once more — phantom
+clients gone.
+
+**Lesson:** "discovery" features that auto-scan a list of well-known file
+paths are a real, config-independent attack surface for stale data on any
+box with a history — this plugin's own `dhcp_lease_file_path` setting
+only adds one *more* path to watch, it doesn't make ctrld watch
+*exclusively* that one. Worth remembering for any future "ctrld is
+showing something wrong" report: check `internal/clientinfo/
+dhcp_lease_files.go`'s current hardcoded list against what actually exists
+on the box before assuming the bug is in this plugin's own generated
+config.
