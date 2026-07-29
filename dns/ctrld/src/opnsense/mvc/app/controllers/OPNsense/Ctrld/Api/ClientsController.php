@@ -89,6 +89,11 @@ class ClientsController extends ApiControllerBase
         $backend = new Backend();
         $output = trim((string)$backend->configdRun('ctrld clients'));
         $searchPhrase = strtolower((string)$this->request->get('searchPhrase', null, ''));
+        $itemsPerPage = (int)$this->request->get('rowCount', 'int', 50);
+        if ($itemsPerPage <= 0) {
+            $itemsPerPage = 50;
+        }
+        $currentPage = max(1, (int)$this->request->get('current', 'int', 1));
 
         $rows = [];
         $lines = $output === '' ? [] : preg_split('/\r?\n/', $output);
@@ -141,11 +146,19 @@ class ClientsController extends ApiControllerBase
             $rows[] = $entry;
         }
 
+        // rowCount/current were previously ignored entirely -- every page
+        // returned the same full, unsliced $rows with 'current' hardcoded
+        // to 1, so the grid's own pager was decorative (page 2 re-rendered
+        // page 1). Same pagination pattern LogController::searchAction()
+        // already uses.
+        $total = count($rows);
+        $pageRows = array_slice($rows, ($currentPage - 1) * $itemsPerPage, $itemsPerPage);
+
         return [
-            'rows' => $rows,
-            'rowCount' => count($rows),
-            'total' => count($rows),
-            'current' => 1,
+            'rows' => $pageRows,
+            'rowCount' => count($pageRows),
+            'total' => $total,
+            'current' => $currentPage,
         ];
     }
 

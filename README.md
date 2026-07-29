@@ -75,5 +75,10 @@ likely be split into a smaller initial PR.
 
 ## AI assistance disclosure
 
-This plugin was built with the assistance of Claude Code (Anthropic), per
-`CONTRIBUTING.md`'s disclosure requirement for AI-assisted submissions.
+This plugin was built with the assistance of Claude Code (Anthropic),
+across multiple Claude model versions over the course of development
+(most recently Claude Sonnet 5) -- `CONTRIBUTING.md` asks that AI tool
+use be disclosed by name *and model* in the PR itself, not shipped in
+`pkg-descr` as package metadata (a real PR should confirm/finalize the
+exact model list here before submission, since this staging repo's own
+history spans more than one session).

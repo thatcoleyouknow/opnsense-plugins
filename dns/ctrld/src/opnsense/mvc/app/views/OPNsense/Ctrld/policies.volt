@@ -284,6 +284,7 @@
         <thead>
             <tr>
                 <th data-column-id="enabled" data-type="string" data-formatter="rowtoggle">{{ lang._('Enabled') }}</th>
+                <th data-column-id="listener" data-type="string">{{ lang._('Listener') }}</th>
                 <th data-column-id="description" data-type="string">{{ lang._('Description') }}</th>
                 <th data-column-id="matchType" data-type="string">{{ lang._('Match type') }}</th>
                 <th data-column-id="matchValue" data-type="string">{{ lang._('Match value') }}</th>
@@ -294,7 +295,7 @@
         <tbody></tbody>
         <tfoot>
             <tr>
-                <td></td><td></td><td></td><td></td><td></td>
+                <td></td><td></td><td></td><td></td><td></td><td></td>
                 <td>
                     <button data-action="add" type="button" class="btn btn-xs btn-primary"><span class="fa fa-plus"></span></button>
                 </td>

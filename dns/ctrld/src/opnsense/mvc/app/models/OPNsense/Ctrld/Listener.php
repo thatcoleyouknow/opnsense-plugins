@@ -133,7 +133,19 @@ class Listener extends BaseModel
         if (class_exists('\OPNsense\Dnsmasq\Dnsmasq')) {
             try {
                 $dnsmasq = new \OPNsense\Dnsmasq\Dnsmasq();
-                if ((string)$dnsmasq->enable == '1' && (string)$dnsmasq->port === (string)$port) {
+                // dns_port, not port: Dnsmasq.xml's <port> field has no
+                // <Default> at all, so it's genuinely blank at rest for the
+                // common case of "never touched, using the real default" --
+                // comparing against it directly means this check silently
+                // never fires for stock Dnsmasq on port 53. dns_port is a
+                // <IntegerField volatile="true"/> Dnsmasq.php computes fresh
+                // on every construction (both in init() and
+                // performValidation()) specifically as "port if set, else
+                // '53'" -- the same normalized value core's own Dnsmasq
+                // model uses for its reciprocal ctrld-conflict check via
+                // configd's dns_ports convention (see ctrld_services() in
+                // plugins.inc.d/ctrld.inc for the other half of that).
+                if ((string)$dnsmasq->enable == '1' && (string)$dnsmasq->dns_port === (string)$port) {
                     if ($this->interfaceListMatches((string)($dnsmasq->interface ?? ''), $interface)) {
                         return 'Dnsmasq';
                     }

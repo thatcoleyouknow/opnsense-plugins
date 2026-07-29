@@ -41,6 +41,24 @@ function ctrld_services()
         return $services;
     }
 
+    // dns_ports is the real, established convention core's own Unbound/
+    // Dnsmasq plugin hooks both publish (unbound.inc/dnsmasq.inc's own
+    // *_services(), confirmed against real core source) so that *other*
+    // DNS services' own conflict checks (e.g. Dnsmasq's
+    // performValidation(), which walks `configd service list` and flags
+    // any other service sharing dns_ports) can warn about colliding with
+    // this one -- without it, ctrld was only ever the passive side of a
+    // port conflict (see Listener::findConflictingService()), never the
+    // one other services could detect. Distinct ports across every
+    // *enabled* listener row, as plain strings to match the convention.
+    $dnsPorts = [];
+    $listenerModel = new \OPNsense\Ctrld\Listener();
+    foreach ($listenerModel->listeners->listener->iterateItems() as $node) {
+        if ((string)$node->enabled === '1') {
+            $dnsPorts[(string)$node->port] = true;
+        }
+    }
+
     $services[] = [
         'description' => gettext('ctrld DNS forwarding proxy'),
         'configd' => [
@@ -48,6 +66,7 @@ function ctrld_services()
             'start' => ['ctrld start'],
             'stop' => ['ctrld stop'],
         ],
+        'dns_ports' => array_keys($dnsPorts),
         'name' => 'ctrld',
     ];
 

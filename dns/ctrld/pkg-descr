@@ -46,8 +46,6 @@ takes toward its own port dependency) and does not fetch or vendor a
 precompiled binary itself. Packaging ctrld as a proper FreeBSD port is
 a separate prerequisite for a from-ports installation story.
 
-This plugin was developed with the assistance of Claude Code (Anthropic).
-
 Plugin Changelog:
 
 0.0.1

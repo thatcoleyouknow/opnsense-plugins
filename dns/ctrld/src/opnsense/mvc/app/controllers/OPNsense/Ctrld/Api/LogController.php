@@ -57,11 +57,12 @@ use OPNsense\Core\Backend;
  * formatter output as text, not HTML -- confirmed empirically (escaping
  * server-side produced visibly double-escaped entities like `&quot;` in
  * the rendered page, since ctrld's JSON lines are full of literal quote
- * characters). This is NOT the same situation as ClientsController, whose
- * own htmlspecialchars() calls stay -- that data also feeds
- * CtrldClients.js's dashboard widget, which builds a raw
- * `<a href="...">${client.ip}</a>` HTML string client-side, so escaping
- * there is genuinely load-bearing against XSS, not redundant.
+ * characters). This is NOT the same situation as ClientsController: that
+ * data also feeds CtrldClients.js's dashboard widget, which builds a raw
+ * `<a href="...">${client.ip}</a>` HTML string client-side, so
+ * CtrldClients.js's own escapeHtml() (applied client-side, at the point
+ * the HTML string is actually built) is genuinely load-bearing there, not
+ * redundant with anything server-side.
  */
 class LogController extends ApiControllerBase
 {

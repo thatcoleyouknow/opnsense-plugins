@@ -277,7 +277,34 @@ function ctrld_patch_listener_ips()
         }
     }
 
-    ctrld_write_active_toml(implode('', $parts));
+    $result = implode('', $parts);
+
+    // ctrld's own Config struct requires Listener/Network/Upstream to each
+    // have at least one entry, UNCONDITIONALLY -- confirmed against real
+    // ctrld source (config.go's `validate:"min=1,dive"` tag on all three),
+    // and enforced on every single `ctrld run` via validateConfig(), which
+    // os.Exit(1)s on failure. The [network]/[upstream]/[listener] section
+    // headers above all render together whenever any listener *row* exists
+    // (enabled or not), but nothing guarantees any of the three actually
+    // gets a numbered [x.N] sub-entry: every listener could be disabled,
+    // every listener that resolved to a dropped block above (no live IP
+    // yet), or -- reachable through this plugin's own guided setup, e.g.
+    // adding only local-zone-delegation domain policies and never a CIDR
+    // one -- zero enabled 'cidr' Policy rows to populate [network] at all.
+    // Any of those crash-loops ctrld with no live listener the moment the
+    // config is actually used, while the GUI's own Apply reports success
+    // (template render + reconfigure don't run ctrld's own validator).
+    // Same bail-out posture as the count-mismatch check above: leave
+    // ACTIVE_TOML_PATH exactly as it was rather than write a config known
+    // to crash ctrld outright.
+    foreach (['network', 'upstream', 'listener'] as $section) {
+        if (strpos($result, "[{$section}]") !== false && strpos($result, "[{$section}.") === false) {
+            syslog(LOG_CRIT, "ctrld: rendered config has a [{$section}] section with zero entries -- ctrld requires at least one, leaving active config unpatched this cycle");
+            return;
+        }
+    }
+
+    ctrld_write_active_toml($result);
 }
 
 try {

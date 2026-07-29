@@ -37,7 +37,8 @@ use OPNsense\Base\ApiMutableServiceControllerBase;
  *
  * All start/stop/restart/status/reconfigure behavior is inherited from
  * ApiMutableServiceControllerBase, which drives configd via the four static
- * properties below -- no raw exec() calls. reconfigureAction() (inherited)
+ * properties below -- no direct shell-out anywhere in this class.
+ * reconfigureAction() (inherited)
  * regenerates ctrld.toml via `configd template reload OPNsense/Ctrld` and
  * then restarts/starts through actions_ctrld.conf, matching the pattern
  * used by dns/dnscrypt-proxy and dns/ddclient's ServiceController classes.

@@ -27,10 +27,16 @@
     pattern below are confirmed against opnsense/core's actual
     service/modules/config.py (XML->dict conversion, attributes land as
     '@attr' keys) and template_helpers.py (Helpers.toList/getNodeByTag).
-    What's still unverified without a live ctrld instance: the exact
-    [listener.N.policy] "networks"/"rules" TOML array shape ctrld itself
-    expects -- cross-check against ctrld's docs/config.md before relying
-    on this in production.
+
+    [listener.N.policy]'s three array shapes -- "networks", "rules", and
+    "macs" -- are confirmed directly against ctrld's real Go source
+    (config.go's ListenerPolicyConfig struct and cmd/cli/dns_proxy.go's
+    matching loops), not guessed: each one is matched against a
+    different thing (CIDR-contains, domain-equals-or-wildcard, and
+    MAC-equals-or-wildcard respectively), and a policy emitted into the
+    wrong array silently never matches anything -- confirmed the hard
+    way once already for 'mac' match-type policies, which an earlier
+    version of this template put into "rules" alongside domain policies.
 #}
 {#
     log_path is fixed (not user-configurable) so the plugin's own log
@@ -160,7 +166,27 @@
       ]
       rules = [
 {% for policy in helpers.toList('OPNsense.ctrld.policies.policies.policy') %}
-{% if policy.enabled == '1' and policy.matchType in ['domain', 'mac'] and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
+{% if policy.enabled == '1' and policy.matchType == 'domain' and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
+{% set policy_upstreams = ["'upstream." ~ ns2.up_uuid_map[policy.upstream] ~ "'"] %}
+{% if policy.fallbackUpstream and policy.fallbackUpstream in ns2.up_uuid_map %}
+{% set policy_upstreams = policy_upstreams + ["'upstream." ~ ns2.up_uuid_map[policy.fallbackUpstream] ~ "'"] %}
+{% endif %}
+        { '{{ policy.matchValue }}' = [{{ policy_upstreams|join(', ') }}] },
+{% endif %}
+{% endfor %}
+      ]
+      {# ctrld's ListenerPolicyConfig has THREE separate rule arrays, not
+         two -- networks (CIDR), rules (domain), and macs -- each matched
+         against a different thing (cmd/cli/dns_proxy.go's networkRules/
+         macRules/domain-rules loops, confirmed against real ctrld
+         source). An earlier version of this template put 'mac' match-type
+         policies into this same `rules` array alongside domain policies,
+         which ctrld's `rules` loop compares only against the queried
+         *domain name* -- so every MAC-match policy silently never
+         matched anything, ever. #}
+      macs = [
+{% for policy in helpers.toList('OPNsense.ctrld.policies.policies.policy') %}
+{% if policy.enabled == '1' and policy.matchType == 'mac' and policy.listener == listener['@uuid'] and policy.upstream in ns2.up_uuid_map %}
 {% set policy_upstreams = ["'upstream." ~ ns2.up_uuid_map[policy.upstream] ~ "'"] %}
 {% if policy.fallbackUpstream and policy.fallbackUpstream in ns2.up_uuid_map %}
 {% set policy_upstreams = policy_upstreams + ["'upstream." ~ ns2.up_uuid_map[policy.fallbackUpstream] ~ "'"] %}
