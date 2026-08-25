@@ -48,12 +48,12 @@
  * VLAN interface's ipaddr already resolves correctly in the template and
  * is never touched here.
  *
- * Run via rc.d/ctrld's start_precmd/reload_precmd, immediately after
+ * Run via rc.d/os-ctrld's start_precmd/reload_precmd, immediately after
  * `configd template reload OPNsense/Ctrld` has produced ctrld.toml and
  * immediately before ctrld actually reads it -- deliberately the single
  * choke point every real path to (re)starting ctrld goes through (the
  * GUI's Apply button, this plugin's own boot/WAN-IP-change reconfigure
- * hook, or a bare `service ctrld restart`), rather than a PHP-side call
+ * hook, or a bare `service os-ctrld restart`), rather than a PHP-side call
  * added at each caller -- which is exactly the kind of "forgot one call
  * site" bug that took every listener down, not just WireGuard's, the
  * first time this was attempted (2026-07-27).
@@ -66,8 +66,8 @@
  * Reads the Jinja2-rendered /etc/controld/ctrld.toml (PRISTINE_TOML_PATH)
  * but never modifies it -- writes the patched result to a separate
  * /etc/controld/ctrld_active.toml (ACTIVE_TOML_PATH), which is what
- * rc.d/ctrld's ctrld_config actually points `ctrld run --config` at. This
- * split exists because `service ctrld restart` is a real, supported path
+ * rc.d/os-ctrld's ctrld_config actually points `ctrld run --config` at. This
+ * split exists because `service os-ctrld restart` is a real, supported path
  * that does NOT re-render the template first -- with the earlier
  * single-file design, a listener resolved (or dropped) by one patch run
  * stayed that way until the *next full template render*, so an interface
@@ -137,7 +137,11 @@ function ctrld_write_active_toml($contents)
     // catches both a hard failure (false) and a partial one.
     $written = @file_put_contents($tmpPath, $contents);
     if ($written === false || $written !== strlen($contents)) {
-        syslog(LOG_ERR, "ctrld: failed to write {$tmpPath} (wrote " . var_export($written, true) . ' of ' . strlen($contents) . ' bytes)');
+        syslog(
+            LOG_ERR,
+            "ctrld: failed to write {$tmpPath} (wrote " . var_export($written, true)
+                . ' of ' . strlen($contents) . ' bytes)'
+        );
         @unlink($tmpPath);
         return false;
     }
@@ -164,7 +168,7 @@ function ctrld_patch_listener_ips()
 {
     if (!file_exists(PRISTINE_TOML_PATH)) {
         // Nothing rendered yet (plugin installed but never applied) --
-        // leave ACTIVE_TOML_PATH alone; rc.d/ctrld simply won't find a
+        // leave ACTIVE_TOML_PATH alone; rc.d/os-ctrld simply won't find a
         // config to start against, same as before this file existed.
         return;
     }
@@ -229,7 +233,11 @@ function ctrld_patch_listener_ips()
         }
     }
     if ($blockCount !== count($listeners)) {
-        syslog(LOG_CRIT, "ctrld: listener count mismatch (template rendered {$blockCount}, model reports " . count($listeners) . ' enabled), leaving active config unpatched this cycle');
+        syslog(
+            LOG_CRIT,
+            "ctrld: listener count mismatch (template rendered {$blockCount}, model reports "
+                . count($listeners) . ' enabled), leaving active config unpatched this cycle'
+        );
         return;
     }
 
@@ -272,7 +280,10 @@ function ctrld_patch_listener_ips()
             // it. Missing from the rendered config for one cycle is a
             // far smaller failure than that; the next reconfigure (Apply,
             // or the next boot/WAN-event cycle) tries again.
-            syslog(LOG_WARNING, "ctrld: no live IP yet for listener.{$idx} on interface {$interface}, omitting it this cycle");
+            syslog(
+                LOG_WARNING,
+                "ctrld: no live IP yet for listener.{$idx} on interface {$interface}, omitting it this cycle"
+            );
             $parts[$i] = '';
         }
     }
@@ -299,7 +310,11 @@ function ctrld_patch_listener_ips()
     // to crash ctrld outright.
     foreach (['network', 'upstream', 'listener'] as $section) {
         if (strpos($result, "[{$section}]") !== false && strpos($result, "[{$section}.") === false) {
-            syslog(LOG_CRIT, "ctrld: rendered config has a [{$section}] section with zero entries -- ctrld requires at least one, leaving active config unpatched this cycle");
+            syslog(
+                LOG_CRIT,
+                "ctrld: rendered config has a [{$section}] section with zero entries -- ctrld requires at "
+                    . 'least one, leaving active config unpatched this cycle'
+            );
             return;
         }
     }

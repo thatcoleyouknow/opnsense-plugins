@@ -4,6 +4,11 @@
         <label>Enabled</label>
         <type>checkbox</type>
         <help>Disable to keep this listener's configuration without starting it.</help>
+        <grid_view>
+            <width>6em</width>
+            <type>boolean</type>
+            <formatter>rowtoggle</formatter>
+        </grid_view>
     </field>
     <field>
         <id>listener.description</id>
@@ -22,6 +27,12 @@
         <label>IP version</label>
         <type>dropdown</type>
         <help>Which address family to bind on the interface selected above. Most setups only need IPv4; add a second listener with the same interface and IPv6 selected if you also want to serve DNS over that interface's IPv6 address. Unverified against a live IPv6 setup -- see the reference doc's Known limitations.</help>
+        <!-- Not a grid column before this form was switched to
+             getFormGrid() either; kept hidden here to preserve that,
+             rather than silently adding a new column no one asked for. -->
+        <grid_view>
+            <visible>false</visible>
+        </grid_view>
     </field>
     <field>
         <id>listener.port</id>

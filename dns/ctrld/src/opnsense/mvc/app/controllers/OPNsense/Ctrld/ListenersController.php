@@ -40,6 +40,13 @@ class ListenersController extends IndexController
     public function indexAction()
     {
         $this->view->listenerForm = $this->getForm("dialogEditCtrldListener");
+        // getFormGrid()'s own $grid_id keeps the existing table id
+        // ('grid-listeners') so nothing in the page's own <script> block
+        // (the UIBootgrid() init referencing #grid-listeners) has to
+        // change -- only the <table> markup itself moves to the shared
+        // base_bootgrid_table partial, per the documented rule that a
+        // full-CRUD grid should be built from the form, not by hand.
+        $this->view->listenerGrid = $this->getFormGrid("dialogEditCtrldListener", "grid-listeners");
         $this->view->pick('OPNsense/Ctrld/listeners');
     }
 }

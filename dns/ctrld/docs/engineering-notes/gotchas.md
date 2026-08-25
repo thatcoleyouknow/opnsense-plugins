@@ -9,23 +9,28 @@ behind the ones that caused real outages.
 
 ## OPNsense's model/field framework
 
-**List-type fields serialize as `{key: {value, selected}}`, not a plain
-string.** Anything built on `BaseListField` — `OptionField`,
-`ModelRelationField`, this plugin's own `ListenerInterfaceField` — comes
-back from `getBase()`/`searchItem` as its *full option map*, not the
-selected value as a bare string. Confirmed by reading `BaseField::getNodes()`
-in real core source: it explicitly checks `is_string($result[$key])` before
-treating a value as a plain string, which only makes sense if it's
-sometimes *not* one. This bit twice in this project: once in
-`ListenerController::cidrAction()` (reading a Policy's selected listener
-field, fixed with a `selectedOption()` helper that finds the key with
-`selected == 1`), and again in the delegation quick-add's duplicate-detection
-JS (comparing `row.matchType === 'domain'` directly against what was
-actually an object, so the comparison was always false and dedup silently
-never worked — fixed with a `selectedKey()` JS helper doing the same thing).
-**Rule of thumb:** never compare a value read back from `searchItem`/`getBase()`
-against a plain string unless you've confirmed that specific field's type
-isn't list-based.
+**List-type fields serialize as `{key: {value, selected}}` from `getBase()`/
+`getNodes()` — but NOT from `searchItem`.** Corrected here after a later
+review re-verified it against current core source: this was originally
+written as a blanket claim covering both, which is wrong for `searchItem`.
+`UIModelGrid::fetch()` (the real code behind every `searchItem` action)
+builds each row as `$row[$fieldname] = $val->getValue()` — the plain
+stored value — plus a sibling `$row['%' . $fieldname] = getDescription()`
+only when the description differs from the raw value; `opnsense_bootgrid.js`
+prefers the `%`-prefixed one for display. So a `searchItem` row's
+`listener`/`matchType`/etc. really is a plain string (a UUID, an option
+key), not an object. The object-map shape is real, but only for
+`getBase()`/`getNodes()`-style reads — confirmed true for
+`ListenerController::cidrAction()`, which genuinely needs its
+`selectedOption()` helper for that reason. The parallel claim about the
+domain quick-add's `selectedKey()` JS helper (added on the theory that
+`searchItem` rows needed the same treatment) doesn't hold up: `searchItem`
+rows were already plain strings, so `selectedKey()` is a harmless
+pass-through there, not load-bearing — whatever actually caused the
+original "dedup silently never worked" symptom, it wasn't this. **Rule of
+thumb:** the object-map shape is a `getBase()`/`getNodes()` thing, not a
+`searchItem` thing — don't assume a `searchItem` row needs unwrapping
+without checking which of the two you're actually looking at.
 
 **`ArrayField`-backed models double-nest in config.xml and template paths.**
 A model like `Listener.xml` (`<mount>//OPNsense/ctrld/listeners</mount>`,
@@ -74,8 +79,8 @@ adding a validation message.
 with `-r` (restart-on-exit).** `daemon(8)`'s own man page spells this out
 directly: `-p` gives you the *child's* PID, and killing only the child with
 `-r` set just makes the still-running supervisor immediately respawn a new
-one. `rc.d/ctrld` tracks the supervisor's pidfile (`-P`) as its real
-`pidfile`/`procname`, specifically so `service ctrld stop` correctly forwards
+one. `rc.d/os-ctrld` tracks the supervisor's pidfile (`-P`) as its real
+`pidfile`/`procname`, specifically so `service os-ctrld stop` correctly forwards
 SIGTERM to the child first and then exits, with no restart. `-p` is kept
 too, purely so the actual worker PID is recorded somewhere for debugging.
 
@@ -94,7 +99,7 @@ syslog at all.
 path to (re)starting a service actually converges.** GUI Apply buttons
 (`ApiMutableServiceControllerBase::reconfigureAction()`, inherited, not
 overridden here), this plugin's own boot/WAN-event `dns` hook
-(`ctrld_configure_do()`), and a bare `service ctrld restart` from the
+(`ctrld_configure_do()`), and a bare `service os-ctrld restart` from the
 console all eventually call into the *same* rc.d script's start/restart/
 reload logic — but none of them share a common PHP-level call site with
 each other. If something must run on every real start, hooking it at the
@@ -106,7 +111,7 @@ go back through the rc.d script.** So a crash caused by a bad config
 doesn't get a fresh chance to self-heal on each auto-respawn; every
 respawn reuses the exact same broken file from the original failed start,
 until something explicitly re-triggers the *full* rc.d start sequence
-(a genuine `service ctrld restart`, not just daemon's own internal
+(a genuine `service os-ctrld restart`, not just daemon's own internal
 retry). A precmd hook only fires on that full sequence, not on individual
 crash-respawns.
 
@@ -284,11 +289,11 @@ handle for the life of the process; the only signal ctrld listens for
 `[reload]` action) triggers `prog.go`'s `runWait()` reload loop, which
 re-reads the *DNS config* file, not the log file -- there's no lumberjack
 or similar rotation library in play either. **But** `cmd/cli/cli.go`'s
-`run()` -- the function `ctrld run` (what `rc.d/ctrld` actually invokes)
+`run()` -- the function `ctrld run` (what `rc.d/os-ctrld` actually invokes)
 executes -- calls `p.initLogging(true)`, and that `true` means
 `initLoggingWithBackup()` renames whatever's currently at `LogPath` to
 `LogPath + ".1"` (silently overwriting any previous `.1`) before opening
-a fresh, truncated log file. So **every** `service ctrld restart`, every
+a fresh, truncated log file. So **every** `service os-ctrld restart`, every
 reboot, and every crash-respawn under `daemon -r` already does a real,
 working, single-generation rotation, entirely inside ctrld itself, with
 zero code from this plugin. Confirmed against GitHub issue
@@ -309,7 +314,7 @@ also restarting ctrld: the Log File page goes permanently blank, since
 ctrld keeps writing into the now-unlinked inode instead of the file that
 now exists at that path. A real scheduled/size-triggered fix needs
 newsyslog's `R` flag instead of `N` -- `R` runs a command (here, a
-wrapper script doing `service ctrld restart`) *after* its own
+wrapper script doing `service os-ctrld restart`) *after* its own
 rename/compress step, rather than sending a signal, which lines up
 exactly with what ctrld needs. Not yet implemented: would need the exact
 `R`-flag field syntax re-verified against the real `newsyslog.conf(5)`

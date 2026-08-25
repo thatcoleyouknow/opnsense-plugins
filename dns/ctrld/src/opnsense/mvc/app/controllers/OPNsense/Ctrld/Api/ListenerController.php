@@ -154,7 +154,7 @@ class ListenerController extends ApiMutableModelControllerBase
 
     public function searchItemAction()
     {
-        return $this->searchBase('listeners.listener');
+        return $this->searchBase('listeners.listener', null, 'interface');
     }
 
     public function getItemAction($uuid = null)

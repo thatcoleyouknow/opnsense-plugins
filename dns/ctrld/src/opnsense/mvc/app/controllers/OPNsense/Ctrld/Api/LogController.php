@@ -39,10 +39,12 @@ use OPNsense\Core\Backend;
  * Grid-backed view over ctrld's own log file (/var/log/ctrld.log, tailed
  * by the 'ctrld log' configd action -- see actions.d/actions_ctrld.conf),
  * one row per line, newest first. Search/row-count/pagination/refresh all
- * come from UIBootgrid's own standard toolbar on the frontend; this just
- * has to answer the same searchPhrase/rowCount/current parameters every
- * other grid in this plugin already answers (see ClientsController for
- * the same shape applied to `ctrld clients list` instead).
+ * come from UIBootgrid's own standard toolbar on the frontend;
+ * searchAction() parses every line into rows, then hands them to
+ * ApiControllerBase::searchRecordsetBase() (see ClientsController for the
+ * same shape applied to `ctrld clients list` instead), which is the
+ * framework's own documented helper for exactly this "dataset not bound
+ * to a model" case.
  *
  * ctrld logs one JSON object per line (confirmed against a real running
  * instance: {"level":"info","time":"...","message":"..."}, sometimes with
@@ -77,36 +79,27 @@ class LogController extends ApiControllerBase
 
         $backend = new Backend();
         $output = trim((string)$backend->configdRun('ctrld log'));
-        $searchPhrase = strtolower((string)$this->request->get('searchPhrase', null, ''));
-        $itemsPerPage = (int)$this->request->get('rowCount', 'int', 50);
-        if ($itemsPerPage <= 0) {
-            $itemsPerPage = 50;
-        }
-        $currentPage = max(1, (int)$this->request->get('current', 'int', 1));
 
         $lines = $output === '' ? [] : preg_split('/\r?\n/', $output);
         $lines = array_reverse($lines);
 
-        if ($searchPhrase !== '') {
-            $lines = array_values(array_filter($lines, function ($line) use ($searchPhrase) {
-                return strpos(strtolower($line), $searchPhrase) !== false;
-            }));
-        }
-
-        $total = count($lines);
-        $pageLines = array_slice($lines, ($currentPage - 1) * $itemsPerPage, $itemsPerPage);
-
         $rows = [];
-        foreach ($pageLines as $line) {
+        foreach ($lines as $line) {
             $rows[] = $this->parseLine($line);
         }
 
-        return [
-            'rows' => $rows,
-            'rowCount' => count($rows),
-            'total' => $total,
-            'current' => $currentPage,
-        ];
+        // searchRecordsetBase() (ApiControllerBase, documented for exactly
+        // this "dataset not bound to a model" case) replaces what used to
+        // be a hand-rolled rowCount/current/searchPhrase implementation
+        // here. No $defaultSort passed: leaving $rows in the newest-first
+        // order already established above, since searchRecordsetBase()
+        // only re-sorts when a sort key is actually supplied (an explicit
+        // $defaultSort, or the grid's own 'sort' POST parameter). Also a
+        // behavior improvement, not just a refactor: search now matches
+        // against the parsed time/level/message fields instead of the raw
+        // JSON line text, so searching "level" no longer matches every
+        // single line just because that's a JSON key name.
+        return $this->searchRecordsetBase($rows);
     }
 
     private function parseLine($line)

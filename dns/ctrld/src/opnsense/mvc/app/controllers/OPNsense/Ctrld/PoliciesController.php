@@ -40,6 +40,7 @@ class PoliciesController extends IndexController
     public function indexAction()
     {
         $this->view->policyForm = $this->getForm("dialogEditCtrldPolicy");
+        $this->view->policyGrid = $this->getFormGrid("dialogEditCtrldPolicy", "grid-policies");
         $this->view->pick('OPNsense/Ctrld/policies');
     }
 }

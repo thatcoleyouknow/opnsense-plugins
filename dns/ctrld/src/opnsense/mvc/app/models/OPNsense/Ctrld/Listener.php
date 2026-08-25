@@ -127,7 +127,13 @@ class Listener extends BaseModel
                     }
                 }
             } catch (\Throwable $e) {
-                // model not available on this install; nothing to compare against
+                // A comment-only body here is a real `Generic.CodeAnalysis.
+                // EmptyStatement` phpcs ERROR under core's own ruleset (its
+                // $emptyTokens set includes comments) -- this `null;` no-op
+                // statement is core's own idiom for the same situation
+                // (confirmed against src/etc/inc/xmlrpc/legacy.inc), not
+                // decoration.
+                null; // model not available on this install; nothing to compare against
             }
         }
         if (class_exists('\OPNsense\Dnsmasq\Dnsmasq')) {
@@ -151,7 +157,13 @@ class Listener extends BaseModel
                     }
                 }
             } catch (\Throwable $e) {
-                // model not available on this install; nothing to compare against
+                // A comment-only body here is a real `Generic.CodeAnalysis.
+                // EmptyStatement` phpcs ERROR under core's own ruleset (its
+                // $emptyTokens set includes comments) -- this `null;` no-op
+                // statement is core's own idiom for the same situation
+                // (confirmed against src/etc/inc/xmlrpc/legacy.inc), not
+                // decoration.
+                null; // model not available on this install; nothing to compare against
             }
         }
         return null;

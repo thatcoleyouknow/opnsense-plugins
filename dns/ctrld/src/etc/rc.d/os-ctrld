@@ -46,7 +46,7 @@ load_rc_config $name
 # process, not the ctrld child. daemon(8)'s own man page spells out why:
 # "the --child-pidfile option will give you the child's ID to signal when
 # you attempt to stop the service, causing daemon to restart the child" --
-# i.e. with -r (restart) set, `service ctrld stop` killing only the child
+# i.e. with -r (restart) set, `service os-ctrld stop` killing only the child
 # just makes the still-running supervisor immediately respawn it. Killing
 # the *supervisor* (via -P) correctly forwards SIGTERM to the child first,
 # then exits, with no restart. -p is kept too so the actual ctrld PID is
@@ -70,7 +70,7 @@ command_args="-c -f -r -P ${ctrld_supervisor_pidfile} -p ${ctrld_pidfile} ${ctrl
 # ApiMutableServiceControllerBase::reconfigureAction(), which
 # Api/ServiceController.php doesn't override), this plugin's own
 # ctrld_configure_do() (boot/WAN-IP-change events, via the 'dns'
-# plugin-hook group), or a bare `service ctrld restart` from the console.
+# plugin-hook group), or a bare `service os-ctrld restart` from the console.
 # rc.subr's default restart is stop+start, so
 # hooking both start and reload (not restart directly) already covers
 # every real path to (re)starting ctrld -- this is deliberately the single
@@ -104,7 +104,7 @@ ctrld_prestart()
 # Apply buttons) doesn't currently take this path itself, since
 # Api/ServiceController.php doesn't override reconfigureForceRestart()
 # (defaults to always forcing a full restart instead), but a direct
-# `service ctrld reload` from the console does, and reload_precmd above
+# `service os-ctrld reload` from the console does, and reload_precmd above
 # means listener IP resolution still runs correctly either way.
 extra_commands="reload"
 reload_cmd="ctrld_reload"

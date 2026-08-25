@@ -4,41 +4,72 @@
         <label>Enabled</label>
         <type>checkbox</type>
         <help>Disable to keep this rule without applying it.</help>
+        <grid_view>
+            <width>6em</width>
+            <type>boolean</type>
+            <formatter>rowtoggle</formatter>
+            <sequence>10</sequence>
+        </grid_view>
     </field>
     <field>
         <id>policy.description</id>
         <label>Description</label>
         <type>text</type>
         <help>Optional label shown in the policy list.</help>
+        <!-- Sequenced after Listener below (30, not the form's own
+             description-before-listener order) so the grid keeps its
+             existing Listener-before-Description column order. Listener
+             is the primary discriminator between otherwise-identical rows
+             created by the delegation quick-add, worth surfacing first. -->
+        <grid_view>
+            <sequence>30</sequence>
+        </grid_view>
     </field>
     <field>
         <id>policy.listener</id>
         <label>Listener</label>
         <type>dropdown</type>
         <help>Which listener this rule applies to -- a query only matches this rule if it arrived on this listener.</help>
+        <grid_view>
+            <sequence>20</sequence>
+        </grid_view>
     </field>
     <field>
         <id>policy.matchType</id>
         <label>Match type</label>
         <type>dropdown</type>
         <help>cidr for VLAN/network-based routing (the primary use case), domain for split-horizon delegation such as *.in-addr.arpa or an internal zone, mac for per-device rules.</help>
+        <grid_view>
+            <sequence>40</sequence>
+        </grid_view>
     </field>
     <field>
         <id>policy.matchValue</id>
         <label>Match value</label>
         <type>text</type>
         <help>e.g. 192.168.3.0/24, internal, 168.192.in-addr.arpa, or aa:bb:cc:dd:ee:ff, depending on the match type above. For a cidr rule, this is filled in automatically from the selected listener's own interface, and refills every time you change the listener -- overwrite it freely for a narrower range or a non-standard setup. For a domain rule, matches are exact -- example.com does not also match foo.example.com; add a separate *.example.com rule to cover subdomains.</help>
+        <grid_view>
+            <sequence>50</sequence>
+        </grid_view>
     </field>
     <field>
         <id>policy.upstream</id>
         <label>Upstream profile</label>
         <type>dropdown</type>
         <help>Matching queries are routed to this upstream profile. Select the local-zone resolver upstream here for *.in-addr.arpa / internal delegation rules.</help>
+        <grid_view>
+            <sequence>60</sequence>
+        </grid_view>
     </field>
     <field>
         <id>policy.fallbackUpstream</id>
         <label>Fallback upstream (optional)</label>
         <type>dropdown</type>
         <help>Optional. If set, ctrld tries the upstream above first and only falls back to this one on timeout or a SERVFAIL response -- not on every query. Leave blank to have no fallback (a failed upstream simply fails the query, as today). Useful for a listener that should keep answering if its primary upstream is briefly unreachable.</help>
+        <!-- Not a grid column before this form was switched to
+             getFormGrid() either; kept hidden here to preserve that. -->
+        <grid_view>
+            <visible>false</visible>
+        </grid_view>
     </field>
 </form>

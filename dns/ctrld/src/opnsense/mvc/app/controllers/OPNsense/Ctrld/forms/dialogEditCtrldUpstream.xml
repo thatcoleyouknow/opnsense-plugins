@@ -4,6 +4,11 @@
         <label>Enabled</label>
         <type>checkbox</type>
         <help>Disable to keep this profile without offering it as a routing target.</help>
+        <grid_view>
+            <width>6em</width>
+            <type>boolean</type>
+            <formatter>rowtoggle</formatter>
+        </grid_view>
     </field>
     <field>
         <id>upstream.name</id>
@@ -16,6 +21,11 @@
         <label>NextDNS profile ID (quick-add)</label>
         <type>text</type>
         <help>Paste just the NextDNS profile ID (e.g. abc123) to auto-fill the type/endpoint fields below as https://dns.nextdns.io/&lt;id&gt; with type doh3. Leave blank for a non-NextDNS upstream.</help>
+        <!-- Not a grid column before this form was switched to
+             getFormGrid() either; kept hidden here to preserve that. -->
+        <grid_view>
+            <visible>false</visible>
+        </grid_view>
     </field>
     <field>
         <id>upstream.type</id>
@@ -34,5 +44,10 @@
         <label>Timeout (ms)</label>
         <type>text</type>
         <help>How long ctrld waits for this upstream to respond before treating the query as failed.</help>
+        <!-- Not a grid column before this form was switched to
+             getFormGrid() either; kept hidden here to preserve that. -->
+        <grid_view>
+            <visible>false</visible>
+        </grid_view>
     </field>
 </form>

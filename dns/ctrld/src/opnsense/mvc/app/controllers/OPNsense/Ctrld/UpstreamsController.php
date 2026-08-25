@@ -40,6 +40,7 @@ class UpstreamsController extends IndexController
     public function indexAction()
     {
         $this->view->upstreamForm = $this->getForm("dialogEditCtrldUpstream");
+        $this->view->upstreamGrid = $this->getFormGrid("dialogEditCtrldUpstream", "grid-upstreams");
         $this->view->pick('OPNsense/Ctrld/upstreams');
     }
 }

@@ -86,6 +86,37 @@ function ctrld_configure()
     ];
 }
 
+/**
+ * Registers this plugin's config with OPNsense's HA/CARP config-sync
+ * mechanism (System > High Availability > Settings), the same way core's
+ * own dns/ddclient does it ('section' => 'OPNsense.DynDNS') and
+ * dns/dnscrypt-proxy does not (a real, accepted precedent either way).
+ * All four of this plugin's models mount under //OPNsense/ctrld, so one
+ * 'OPNsense.ctrld' section covers General/Listener/Upstream/Policy in a
+ * single string -- confirmed against rc.filter_synchronize, which splits
+ * 'section' on commas and feeds each into copy_conf_section(), a plain
+ * config.xml dot-path walk.
+ *
+ * Syncing config.xml alone does NOT install the ctrld binary on the
+ * backup node, and each node's own patch_listener_ips.php resolves its
+ * own live interface addresses independently (which is correct -- a CARP
+ * backup's WireGuard/DHCP interfaces have their own addresses, not the
+ * primary's) -- see docs/ctrld.md's Known Limitations for the full note.
+ */
+function ctrld_xmlrpc_sync()
+{
+    $result = [];
+
+    $result[] = [
+        'description' => gettext('ctrld DNS forwarding proxy'),
+        'section' => 'OPNsense.ctrld',
+        'id' => 'ctrld',
+        'services' => ['ctrld'],
+    ];
+
+    return $result;
+}
+
 function ctrld_configure_do($verbose = false)
 {
     service_log('Configuring ctrld...', $verbose);

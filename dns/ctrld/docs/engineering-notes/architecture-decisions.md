@@ -248,9 +248,9 @@ config.xml-writing reconfigure hook.
 
 **Final design (rc.d precmd + direct TOML patch, zero config.xml writes):**
 resolve the interface's address in a script (`patch_listener_ips.php`) run
-via `rc.d/ctrld`'s `start_precmd`/`reload_precmd` — the one place *every*
+via `rc.d/os-ctrld`'s `start_precmd`/`reload_precmd` — the one place *every*
 real path to actually starting ctrld converges (GUI Apply, boot/WAN-event
-hook, and a bare `service ctrld restart` from the console, which neither of
+hook, and a bare `service os-ctrld restart` from the console, which neither of
 the PHP-level hooks would ever catch). It patches the already-rendered
 `/etc/controld/ctrld.toml` directly, in place, and never touches
 config.xml at all — so there's no persisted state to race against, and

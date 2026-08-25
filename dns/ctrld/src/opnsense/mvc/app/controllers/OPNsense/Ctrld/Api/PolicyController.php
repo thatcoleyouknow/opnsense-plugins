@@ -55,7 +55,11 @@ class PolicyController extends ApiMutableModelControllerBase
      */
     public function searchItemAction()
     {
-        $result = $this->searchBase('policies.policy');
+        // Not 'listener' as the default sort key: it's a ModelRelationField
+        // storing a raw UUID, so sorting by it would group rows in
+        // meaningless UUID order rather than anything a user would
+        // recognize -- 'description' is the more useful default here.
+        $result = $this->searchBase('policies.policy', null, 'description');
         if (empty($result['rows'])) {
             return $result;
         }

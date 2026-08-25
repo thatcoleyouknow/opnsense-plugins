@@ -88,12 +88,6 @@ class ClientsController extends ApiControllerBase
 
         $backend = new Backend();
         $output = trim((string)$backend->configdRun('ctrld clients'));
-        $searchPhrase = strtolower((string)$this->request->get('searchPhrase', null, ''));
-        $itemsPerPage = (int)$this->request->get('rowCount', 'int', 50);
-        if ($itemsPerPage <= 0) {
-            $itemsPerPage = 50;
-        }
-        $currentPage = max(1, (int)$this->request->get('current', 'int', 1));
 
         $rows = [];
         $lines = $output === '' ? [] : preg_split('/\r?\n/', $output);
@@ -131,35 +125,23 @@ class ClientsController extends ApiControllerBase
                 array_slice($header, 0, count($fields)),
                 array_slice($fields, 0, count($header))
             );
-            $entry = [
+            $rows[] = [
                 'ip' => $this->sanitizeIp($row['ip'] ?? ''),
                 'hostname' => $this->sanitizeText($row['hostname'] ?? ''),
                 'mac' => $this->sanitizeMac($row['mac'] ?? ''),
                 'source' => $this->sanitizeText($row['discovered'] ?? ''),
             ];
-            if (
-                $searchPhrase !== '' &&
-                strpos(strtolower(implode(' ', $entry)), $searchPhrase) === false
-            ) {
-                continue;
-            }
-            $rows[] = $entry;
         }
 
-        // rowCount/current were previously ignored entirely -- every page
-        // returned the same full, unsliced $rows with 'current' hardcoded
-        // to 1, so the grid's own pager was decorative (page 2 re-rendered
-        // page 1). Same pagination pattern LogController::searchAction()
-        // already uses.
-        $total = count($rows);
-        $pageRows = array_slice($rows, ($currentPage - 1) * $itemsPerPage, $itemsPerPage);
-
-        return [
-            'rows' => $pageRows,
-            'rowCount' => count($pageRows),
-            'total' => $total,
-            'current' => $currentPage,
-        ];
+        // searchRecordsetBase() (ApiControllerBase, documented for exactly
+        // this "dataset not bound to a model" case) replaces what used to
+        // be a hand-rolled rowCount/current/searchPhrase implementation
+        // here -- it was previously ignored entirely (every page returned
+        // the same full, unsliced $rows with 'current' hardcoded to 1, so
+        // the grid's own pager was decorative). Also gives real column
+        // sorting for free, which the grid's Tabulator headers already
+        // advertise but nothing here previously honoured.
+        return $this->searchRecordsetBase($rows);
     }
 
     /**

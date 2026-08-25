@@ -48,7 +48,7 @@ class UpstreamController extends ApiMutableModelControllerBase
 
     public function searchItemAction()
     {
-        return $this->searchBase('upstreams.upstream');
+        return $this->searchBase('upstreams.upstream', null, 'name');
     }
 
     public function getItemAction($uuid = null)

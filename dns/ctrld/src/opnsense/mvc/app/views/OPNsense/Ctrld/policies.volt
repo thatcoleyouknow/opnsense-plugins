@@ -1,3 +1,30 @@
+{#
+ # Copyright (C) 2026 os-ctrld contributors
+ # All rights reserved.
+ #
+ # Redistribution and use in source and binary forms, with or without
+ # modification, are permitted provided that the following conditions are met:
+ #
+ # 1. Redistributions of source code must retain the above copyright notice,
+ #    this list of conditions and the following disclaimer.
+ #
+ # 2. Redistributions in binary form must reproduce the above copyright
+ #    notice, this list of conditions and the following disclaimer in the
+ #    documentation and/or other materials provided with the distribution.
+ #
+ # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ # ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ # LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ # CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ # SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ # POSSIBILITY OF SUCH DAMAGE.
+ #}
+
 <script>
     $( document ).ready(function() {
         $("#grid-policies").UIBootgrid({
@@ -77,13 +104,17 @@
         // $this->request->isGet() -- ajaxCall() always POSTs (confirmed
         // against OPNsense core's opnsense.js), which made this silently
         // come back as an empty [], read below as "host/port not set".
-        // searchItem serializes OptionField/ModelRelationField values (e.g.
-        // matchType, listener) as their full {key: {value, selected}} map,
-        // not a plain string -- the same fact already documented in
-        // Api/ListenerController.php's selectedOption(). Extracts the
-        // selected key either way, so a comparison against a plain UUID/
-        // string value works regardless of which shape the grid handed
-        // back for that particular field.
+        // Correction (a later review re-verified this against current core
+        // source): searchItem rows do NOT carry the {key: {value, selected}}
+        // object shape -- that's a getBase()/getNodes() thing
+        // (Api/ListenerController.php's selectedOption() genuinely needs it
+        // for that reason). UIModelGrid::fetch(), the real code behind
+        // searchItem, returns the plain stored value per field. This
+        // function was written on the theory it needed the same unwrapping
+        // searchItem rows never actually need -- kept anyway as a harmless,
+        // defensive pass-through (a plain string flows through unchanged),
+        // rather than removed and risking whatever the original dedup bug
+        // this was meant to fix actually was.
         function selectedKey(value) {
             if (typeof value !== 'object' || value === null) {
                 return value;
@@ -280,30 +311,7 @@
 </script>
 
 <div class="content-box">
-    <table id="grid-policies" class="table table-condensed table-hover table-striped" data-editDialog="DialogEditPolicy">
-        <thead>
-            <tr>
-                <th data-column-id="enabled" data-type="string" data-formatter="rowtoggle">{{ lang._('Enabled') }}</th>
-                <th data-column-id="listener" data-type="string">{{ lang._('Listener') }}</th>
-                <th data-column-id="description" data-type="string">{{ lang._('Description') }}</th>
-                <th data-column-id="matchType" data-type="string">{{ lang._('Match type') }}</th>
-                <th data-column-id="matchValue" data-type="string">{{ lang._('Match value') }}</th>
-                <th data-column-id="upstream" data-type="string">{{ lang._('Upstream') }}</th>
-                <th data-column-id="uuid" data-type="string" data-formatter="commands" data-identifier="true">{{ lang._('Commands') }}</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-        <tfoot>
-            <tr>
-                <td></td><td></td><td></td><td></td><td></td><td></td>
-                <td>
-                    <button data-action="add" type="button" class="btn btn-xs btn-primary"><span class="fa fa-plus"></span></button>
-                </td>
-            </tr>
-        </tfoot>
-    </table>
-    {{ partial("layout_partials/base_dialog",['fields':policyForm,'id':'DialogEditPolicy','label':lang._('Edit policy rule')])}}
-    {{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/ctrld/service/reconfigure', 'data_service_widget': 'ctrld', 'button_id': 'applyPoliciesAct'}) }}
+    {{ partial('layout_partials/base_bootgrid_table', policyGrid) }}
     <hr/>
     <p>{{ lang._('Guided shortcut: creates a "Local resolver" upstream plus one pair of domain-match policy rows (168.192.in-addr.arpa, internal) per enabled listener, routed to it -- skips any that already exist.') }}</p>
     <button id="createLocalZoneDelegation" type="button" class="btn btn-primary">
@@ -322,3 +330,5 @@
         </button>
     </div>
 </div>
+{{ partial('layout_partials/base_apply_button', {'data_endpoint': '/api/ctrld/service/reconfigure', 'data_service_widget': 'ctrld', 'button_id': 'applyPoliciesAct'}) }}
+{{ partial("layout_partials/base_dialog",['fields':policyForm,'id':policyGrid['edit_dialog_id'],'label':lang._('Edit policy rule')])}}
