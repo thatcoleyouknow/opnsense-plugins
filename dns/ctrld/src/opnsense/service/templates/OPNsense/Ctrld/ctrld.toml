@@ -42,7 +42,7 @@
     log_path is fixed (not user-configurable) so the plugin's own log
     viewer (Services > ctrld > Log) always knows where to look.
     Without it, ctrld's own stdout/stderr just go to /dev/null, since
-    rc.d/os-ctrld runs it under `daemon -f`.
+    rc.d/ctrld runs it under `daemon -f`.
 
     dhcp_lease_file_path/format is also fixed, not derived from anything
     the Dnsmasq plugin exposes to us. Confirmed on a live box: dnsmasq's

@@ -94,14 +94,23 @@ class LogController extends ApiControllerBase
         // here. No $defaultSort passed: leaving $rows in the newest-first
         // order already established above, since searchRecordsetBase()
         // only re-sorts when a sort key is actually supplied (an explicit
-        // $defaultSort, or the grid's own 'sort' POST parameter). Also a
-        // behavior improvement, not just a refactor: search now matches
-        // against the parsed time/level/message fields instead of the raw
-        // JSON line text, so searching "level" no longer matches every
-        // single line just because that's a JSON key name.
+        // $defaultSort, or the grid's own 'sort' POST parameter).
         return $this->searchRecordsetBase($rows);
     }
 
+    /**
+     * 'time'/'level'/'message' are the three real grid columns; 'raw' is
+     * not a column at all (no matching <th data-column-id="raw">, so
+     * opnsense_bootgrid.js's Tabulator wrapper just ignores the extra
+     * key) -- it exists purely so searchRecordsetBase()'s search, which
+     * scans every key of every row when no explicit $fields list is
+     * passed, can still match against fields ctrld sometimes logs beyond
+     * the three parsed ones (this class's own docblock notes
+     * "bootstrap_ip" as a real example). Parsing into time/level/message
+     * was itself a real narrowing versus the old raw-line substring
+     * search this replaced -- 'raw' closes that gap rather than silently
+     * shipping it as a regression.
+     */
     private function parseLine($line)
     {
         $decoded = json_decode($line, true);
@@ -110,8 +119,9 @@ class LogController extends ApiControllerBase
                 'time' => (string)($decoded['time'] ?? ''),
                 'level' => (string)($decoded['level'] ?? ''),
                 'message' => (string)$decoded['message'],
+                'raw' => $line,
             ];
         }
-        return ['time' => '', 'level' => '', 'message' => $line];
+        return ['time' => '', 'level' => '', 'message' => $line, 'raw' => $line];
     }
 }

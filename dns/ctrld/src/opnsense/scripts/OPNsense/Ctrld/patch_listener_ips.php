@@ -48,12 +48,12 @@
  * VLAN interface's ipaddr already resolves correctly in the template and
  * is never touched here.
  *
- * Run via rc.d/os-ctrld's start_precmd/reload_precmd, immediately after
+ * Run via rc.d/ctrld's start_precmd/reload_precmd, immediately after
  * `configd template reload OPNsense/Ctrld` has produced ctrld.toml and
  * immediately before ctrld actually reads it -- deliberately the single
  * choke point every real path to (re)starting ctrld goes through (the
  * GUI's Apply button, this plugin's own boot/WAN-IP-change reconfigure
- * hook, or a bare `service os-ctrld restart`), rather than a PHP-side call
+ * hook, or a bare `service ctrld restart`), rather than a PHP-side call
  * added at each caller -- which is exactly the kind of "forgot one call
  * site" bug that took every listener down, not just WireGuard's, the
  * first time this was attempted (2026-07-27).
@@ -66,8 +66,8 @@
  * Reads the Jinja2-rendered /etc/controld/ctrld.toml (PRISTINE_TOML_PATH)
  * but never modifies it -- writes the patched result to a separate
  * /etc/controld/ctrld_active.toml (ACTIVE_TOML_PATH), which is what
- * rc.d/os-ctrld's ctrld_config actually points `ctrld run --config` at. This
- * split exists because `service os-ctrld restart` is a real, supported path
+ * rc.d/ctrld's ctrld_config actually points `ctrld run --config` at. This
+ * split exists because `service ctrld restart` is a real, supported path
  * that does NOT re-render the template first -- with the earlier
  * single-file design, a listener resolved (or dropped) by one patch run
  * stayed that way until the *next full template render*, so an interface
@@ -168,7 +168,7 @@ function ctrld_patch_listener_ips()
 {
     if (!file_exists(PRISTINE_TOML_PATH)) {
         // Nothing rendered yet (plugin installed but never applied) --
-        // leave ACTIVE_TOML_PATH alone; rc.d/os-ctrld simply won't find a
+        // leave ACTIVE_TOML_PATH alone; rc.d/ctrld simply won't find a
         // config to start against, same as before this file existed.
         return;
     }

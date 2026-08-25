@@ -201,7 +201,7 @@ usually means ctrld never actually started.
   that file handle for the life of the process -- it has no built-in
   size-based rotation, and doesn't respond to any signal that would make
   it reopen the file (confirmed by reading ctrld's own Go source). What
-  it *does* have: every time it starts (`service os-ctrld restart`, a
+  it *does* have: every time it starts (`service ctrld restart`, a
   reboot, or `daemon -r` respawning it after a crash), it backs up
   whatever was in `ctrld.log` to `ctrld.log.1` (overwriting any previous
   `.1`) before starting a fresh, empty log -- so a restart is a real,
@@ -283,7 +283,7 @@ all (WireGuard, OpenVPN: config.xml has no `<ipaddr>` element, which
 renders as the literal string `ip = 'None'`), others store one of
 `interfaces.inc`'s own placeholder strings instead (`dhcp`, `pppoe`,
 `track6`, `slaac`, `dhcp6`) -- so the config template alone can't resolve
-any of them. `rc.d/os-ctrld`'s `start_precmd`/`reload_precmd` runs
+any of them. `rc.d/ctrld`'s `start_precmd`/`reload_precmd` runs
 `opnsense/scripts/OPNsense/Ctrld/patch_listener_ips.php` immediately before
 ctrld starts, which checks each listener's rendered `ip` value with
 `is_ipaddr()` (catching all of the above, not just the literal `'None'`
@@ -298,7 +298,7 @@ one: ctrld actually reads `/etc/controld/ctrld_active.toml`, which
 `patch_listener_ips.php` regenerates fresh from `/etc/controld/ctrld.toml`
 (the pristine, unpatched render -- inspect this one to see the raw
 placeholder values) on every start/restart/reload, specifically so a plain
-`service os-ctrld restart` re-attempts resolution too, not just a full Apply.
+`service ctrld restart` re-attempts resolution too, not just a full Apply.
 Deliberately not under `/var/run` -- that's cleared on every boot, which
 would leave ctrld with no config at all after a reboot rather than the
 last known-good one. To confirm the patch actually ran:
@@ -319,7 +319,7 @@ whatever's manually configured. Uncheck it. See the how-to's
 
 **The service-status widget (top of the page) goes blank/hidden whenever
 ctrld isn't running.** Root cause (found by a later maintainer-level
-review, now fixed): `rc.d/os-ctrld status` exits 1 when the service is
+review, now fixed): `rc.d/ctrld status` exits 1 when the service is
 stopped -- correct rc.subr behavior -- but configd's `script_output`
 action type runs every command with `check=True` by default, so that
 non-zero exit raised `CalledProcessError`, which configd swallowed into
@@ -330,7 +330,7 @@ to `actions_ctrld.conf`'s `[status]` command (same pattern OPNsense
 core's own `dns/dnscrypt-proxy` plugin already uses), so a stopped ctrld
 now reports its real "not running" status instead of an opaque error. If
 you're still seeing this on an up-to-date checkout, check **Services →
-ctrld → Log** and `service os-ctrld status` / `ps aux | grep ctrld` directly
+ctrld → Log** and `service ctrld status` / `ps aux | grep ctrld` directly
 -- something else is likely wrong (ctrld binary missing, malformed
 `ctrld.toml`, a port conflict).
 
@@ -364,9 +364,9 @@ still doesn't, that's a parser mismatch -- see the known limitation above
 for the exact table format the parser expects, and compare against what
 your version of `ctrld` actually prints.
 
-**`service os-ctrld stop` appears to succeed but a new ctrld process is
-running again moments later, and/or `service os-ctrld start` fails with
-"process already running, pid: -1".** `rc.d/os-ctrld` runs ctrld under
+**`service ctrld stop` appears to succeed but a new ctrld process is
+running again moments later, and/or `service ctrld start` fails with
+"process already running, pid: -1".** `rc.d/ctrld` runs ctrld under
 `daemon(8)` with `-r` (auto-restart on exit) for resilience. Confirmed
 against `daemon(8)`'s own man page: the `-p`/`--child-pidfile` flag records
 the *child's* PID, and rc.subr's stop action only knows how to signal

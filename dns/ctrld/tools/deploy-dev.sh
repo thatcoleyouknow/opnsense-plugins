@@ -42,20 +42,7 @@ rsync -a "${PLUGIN_SRC}/src/opnsense/" /usr/local/opnsense/
 
 echo "==> Syncing plugins.inc.d hook and rc.d script into /usr/local/etc"
 rsync -a "${PLUGIN_SRC}/src/etc/" /usr/local/etc/
-chmod +x /usr/local/etc/rc.d/os-ctrld
-
-# The rc.d script was renamed ctrld -> os-ctrld (namespaced away from a
-# real ctrld FreeBSD port's own likely rc.d filename, which would
-# otherwise collide with it -- same convention every other plugin in
-# opnsense/plugins that ships an rc.d script already follows). Since this
-# rsync deliberately never uses --delete (see the comment above it), the
-# stale /usr/local/etc/rc.d/ctrld from before this rename won't be
-# removed automatically -- clean it up by hand, once, the first time you
-# deploy this version: `rm -f /usr/local/etc/rc.d/ctrld`. Leaving it in
-# place risks rcorder starting both scripts at boot.
-if [ -f /usr/local/etc/rc.d/ctrld ]; then
-    echo "==> WARNING: stale /usr/local/etc/rc.d/ctrld found (pre-rename) -- remove it by hand: rm -f /usr/local/etc/rc.d/ctrld"
-fi
+chmod +x /usr/local/etc/rc.d/ctrld
 
 # The ACL and Menu systems each cache their merged XML to disk with a 1hr
 # TTL (see OPNsense\Base\Menu\MenuSystem::persist(), core's system.inc

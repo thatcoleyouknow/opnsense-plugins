@@ -55,10 +55,15 @@ class PolicyController extends ApiMutableModelControllerBase
      */
     public function searchItemAction()
     {
-        // Not 'listener' as the default sort key: it's a ModelRelationField
-        // storing a raw UUID, so sorting by it would group rows in
-        // meaningless UUID order rather than anything a user would
-        // recognize -- 'description' is the more useful default here.
+        // 'description', not 'listener': searchBase()'s sort actually goes
+        // through ArrayField::sortedBy(), which builds its sort key from
+        // getDescription() (confirmed against real core source), not the
+        // raw stored value -- so sorting by 'listener' would genuinely
+        // group rows by its real "interface:port description" display
+        // text, not a meaningless UUID. Still choosing 'description' here
+        // regardless: it's a plainer, more predictable grouping for a
+        // reader scanning the list than "which VLAN, then within that
+        // which port" would be.
         $result = $this->searchBase('policies.policy', null, 'description');
         if (empty($result['rows'])) {
             return $result;

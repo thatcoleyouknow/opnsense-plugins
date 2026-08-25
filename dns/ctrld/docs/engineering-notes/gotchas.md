@@ -79,8 +79,8 @@ adding a validation message.
 with `-r` (restart-on-exit).** `daemon(8)`'s own man page spells this out
 directly: `-p` gives you the *child's* PID, and killing only the child with
 `-r` set just makes the still-running supervisor immediately respawn a new
-one. `rc.d/os-ctrld` tracks the supervisor's pidfile (`-P`) as its real
-`pidfile`/`procname`, specifically so `service os-ctrld stop` correctly forwards
+one. `rc.d/ctrld` tracks the supervisor's pidfile (`-P`) as its real
+`pidfile`/`procname`, specifically so `service ctrld stop` correctly forwards
 SIGTERM to the child first and then exits, with no restart. `-p` is kept
 too, purely so the actual worker PID is recorded somewhere for debugging.
 
@@ -99,7 +99,7 @@ syslog at all.
 path to (re)starting a service actually converges.** GUI Apply buttons
 (`ApiMutableServiceControllerBase::reconfigureAction()`, inherited, not
 overridden here), this plugin's own boot/WAN-event `dns` hook
-(`ctrld_configure_do()`), and a bare `service os-ctrld restart` from the
+(`ctrld_configure_do()`), and a bare `service ctrld restart` from the
 console all eventually call into the *same* rc.d script's start/restart/
 reload logic — but none of them share a common PHP-level call site with
 each other. If something must run on every real start, hooking it at the
@@ -111,9 +111,35 @@ go back through the rc.d script.** So a crash caused by a bad config
 doesn't get a fresh chance to self-heal on each auto-respawn; every
 respawn reuses the exact same broken file from the original failed start,
 until something explicitly re-triggers the *full* rc.d start sequence
-(a genuine `service os-ctrld restart`, not just daemon's own internal
+(a genuine `service ctrld restart`, not just daemon's own internal
 retry). A precmd hook only fires on that full sequence, not on individual
 crash-respawns.
+
+**Renaming an rc.d script's filename doesn't namespace it -- `name=`,
+`rcvar=`, `PROVIDE:`, and the rc.conf.d file it writes are four
+*separate* things, and half-renaming is worse than not renaming at all.**
+Tried and reverted in this project: renamed `rc.d/ctrld` to
+`rc.d/os-ctrld` (to avoid a filename collision with a hypothetical future
+real `ctrld` FreeBSD port), updated every doc/actions.d reference to
+match -- but left `name="ctrld"`/`rcvar="ctrld_enable"`/
+`# PROVIDE: ctrld` inside the script itself untouched, and the
+`ctrld:/etc/rc.conf.d/ctrld` `+TARGETS` entry untouched. That combination
+is internally self-consistent *today* (this plugin's own `service
+os-ctrld ...` calls all still worked), but doesn't achieve the stated
+goal at all: a real future `ctrld` port shipping its own
+`/usr/local/etc/rc.d/ctrld` with its own `name="ctrld"` would read the
+*same* `/etc/rc.conf.d/ctrld` this plugin's template writes and could
+double-start on the same ports, plus `rcorder` would see two files both
+claiming `PROVIDE: ctrld`. A real fix needs `name`/`rcvar`/`PROVIDE` *and*
+the rc.conf.d template's own target path renamed together (with a
+migration note for the orphaned old rc.conf.d file) -- checked real
+precedent (`net/relayd`'s `os-relayd`, `net/ftp-proxy`'s `os-ftp-proxy`)
+and confirmed every one namespaces all of these together, never just the
+filename. Given that's real migration risk on a production box for a
+port that doesn't exist yet (already a separate, known PR prerequisite),
+reverted the rename entirely rather than ship a half-measure -- worth
+doing properly, together, if/when a real `ctrld` port actually
+materializes, not before.
 
 ## AJAX / OPNsense's own frontend JS helpers
 
@@ -289,11 +315,11 @@ handle for the life of the process; the only signal ctrld listens for
 `[reload]` action) triggers `prog.go`'s `runWait()` reload loop, which
 re-reads the *DNS config* file, not the log file -- there's no lumberjack
 or similar rotation library in play either. **But** `cmd/cli/cli.go`'s
-`run()` -- the function `ctrld run` (what `rc.d/os-ctrld` actually invokes)
+`run()` -- the function `ctrld run` (what `rc.d/ctrld` actually invokes)
 executes -- calls `p.initLogging(true)`, and that `true` means
 `initLoggingWithBackup()` renames whatever's currently at `LogPath` to
 `LogPath + ".1"` (silently overwriting any previous `.1`) before opening
-a fresh, truncated log file. So **every** `service os-ctrld restart`, every
+a fresh, truncated log file. So **every** `service ctrld restart`, every
 reboot, and every crash-respawn under `daemon -r` already does a real,
 working, single-generation rotation, entirely inside ctrld itself, with
 zero code from this plugin. Confirmed against GitHub issue
@@ -314,7 +340,7 @@ also restarting ctrld: the Log File page goes permanently blank, since
 ctrld keeps writing into the now-unlinked inode instead of the file that
 now exists at that path. A real scheduled/size-triggered fix needs
 newsyslog's `R` flag instead of `N` -- `R` runs a command (here, a
-wrapper script doing `service os-ctrld restart`) *after* its own
+wrapper script doing `service ctrld restart`) *after* its own
 rename/compress step, rather than sending a signal, which lines up
 exactly with what ctrld needs. Not yet implemented: would need the exact
 `R`-flag field syntax re-verified against the real `newsyslog.conf(5)`
